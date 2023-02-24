@@ -37,12 +37,10 @@ contract DC is Pausable, Ownable {
         uint256 baseRentalPrice;
         uint256 duration;
         uint256 gracePeriod;
-
         // 32-bytes block
         address revenueAccount;
         uint64 wrapperExpiry;
         uint32 fuses;
-
         // 61-bytes
         address registrarController;
         address baseRegistrar;
@@ -157,12 +155,11 @@ contract DC is Pausable, Ownable {
         _unpause();
     }
 
-
-    function numRecords() public view returns (uint256){
+    function numRecords() public view returns (uint256) {
         return keys.length;
     }
 
-    function getRecordKeys(uint256 start, uint256 end) public view returns (bytes32[] memory){
+    function getRecordKeys(uint256 start, uint256 end) public view returns (bytes32[] memory) {
         require(end > start, "D1DC: end must be greater than start");
         bytes32[] memory slice = new bytes32[](end - start);
         for (uint256 i = start; i < end; i++) {
@@ -177,7 +174,9 @@ contract DC is Pausable, Ownable {
      */
     function available(string memory name) public view returns (bool) {
         NameRecord storage record = nameRecords[keccak256(bytes(name))];
-        return registrarController.available(name) && (record.renter == address(0) || uint256(record.expirationTime) + gracePeriod <= block.timestamp);
+        return
+            registrarController.available(name) &&
+            (record.renter == address(0) || uint256(record.expirationTime) + gracePeriod <= block.timestamp);
     }
 
     /**
@@ -189,7 +188,18 @@ contract DC is Pausable, Ownable {
      */
     function makeCommitment(string memory name, address owner, bytes32 secret) public view returns (bytes32) {
         bytes[] memory data;
-        return registrarController.makeCommitment(name, owner, duration, secret, resolver, data, reverseRecord, fuses, wrapperExpiry);
+        return
+            registrarController.makeCommitment(
+                name,
+                owner,
+                duration,
+                secret,
+                resolver,
+                data,
+                reverseRecord,
+                fuses,
+                wrapperExpiry
+            );
     }
 
     /**
@@ -229,7 +239,12 @@ contract DC is Pausable, Ownable {
      * @param url A URL that can be embedded in a web2 default domain page e.g. a twitter post
      * @param secret A random secret passed by the client
      */
-    function register(string calldata name, string calldata url, bytes32 secret, address to) public payable whenNotPaused {
+    function register(
+        string calldata name,
+        string calldata url,
+        bytes32 secret,
+        address to
+    ) public payable whenNotPaused {
         require(bytes(name).length <= 128, "DC: name too long");
         require(bytes(url).length <= 1024, "DC: url too long");
         uint256 price = getPrice(name);
@@ -267,7 +282,17 @@ contract DC is Pausable, Ownable {
     function _register(string calldata name, address owner, bytes32 secret) internal whenNotPaused {
         uint256 ensPrice = getENSPrice(name);
         bytes[] memory emptyData;
-        registrarController.register{value: ensPrice}(name, owner, duration, secret, resolver, emptyData, reverseRecord, fuses, wrapperExpiry);
+        registrarController.register{value: ensPrice}(
+            name,
+            owner,
+            duration,
+            secret,
+            resolver,
+            emptyData,
+            reverseRecord,
+            fuses,
+            wrapperExpiry
+        );
     }
 
     /**
@@ -282,7 +307,7 @@ contract DC is Pausable, Ownable {
         require(bytes(url).length <= 1024, "DC: url too long");
         NameRecord storage nameRecord = nameRecords[keccak256(bytes(name))];
         require(nameRecord.renter != address(0), "DC: name is not rented");
-        require(nameRecord.expirationTime + gracePeriod >= block.timestamp, "DC: cannot renew after grace period" );
+        require(nameRecord.expirationTime + gracePeriod >= block.timestamp, "DC: cannot renew after grace period");
         uint256 ensPrice = getENSPrice(name);
         uint256 price = baseRentalPrice + ensPrice;
         require(price <= msg.value, "DC: insufficient payment");
@@ -305,7 +330,7 @@ contract DC is Pausable, Ownable {
         }
     }
 
-    function getReinstateCost(string calldata name) public view returns (uint256){
+    function getReinstateCost(string calldata name) public view returns (uint256) {
         uint256 tokenId = uint256(keccak256(bytes(name)));
         NameRecord storage nameRecord = nameRecords[bytes32(tokenId)];
         uint256 expiration = baseRegistrar.nameExpires(tokenId);
@@ -316,7 +341,7 @@ contract DC is Pausable, Ownable {
         if (expiration > nameRecord.expirationTime) {
             chargeableDuration = expiration - nameRecord.expirationTime;
         }
-        uint256 charge = (chargeableDuration * 1e18 / duration * baseRentalPrice) / 1e18;
+        uint256 charge = (((chargeableDuration * 1e18) / duration) * baseRentalPrice) / 1e18;
         return charge;
     }
 
@@ -331,10 +356,10 @@ contract DC is Pausable, Ownable {
 
         require(msg.value >= charge, "DC: insufficient payment");
         nameRecord.expirationTime = expiration;
-        if(nameRecord.rentTime == 0){
+        if (nameRecord.rentTime == 0) {
             nameRecord.rentTime = block.timestamp;
         }
-        if(nameRecord.renter == address(0)){
+        if (nameRecord.renter == address(0)) {
             _updateLinkedListWithNewName(nameRecord, name);
         }
         emit NameReinstated(name, domainOwner, charge, nameRecord.renter);
@@ -362,7 +387,5 @@ contract DC is Pausable, Ownable {
         require(success, "DC: failed to withdraw");
     }
 
-    receive() external payable{
-
-    }
+    receive() external payable {}
 }
