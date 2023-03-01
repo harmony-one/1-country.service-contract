@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 
 import "./interfaces/IRegistrarController.sol";
 import "./interfaces/IBaseRegistrar.sol";
+import "./interfaces/ITLDNameWrapper.sol";
 
 /**
     @title A domain manager contract for .country (DC -  Dot Country)
@@ -26,6 +27,7 @@ contract DC is Pausable, Ownable {
     address public revenueAccount;
     IRegistrarController public registrarController;
     IBaseRegistrar public baseRegistrar;
+    ITLDNameWrapper public tldNameWrapper;
     uint256 public duration;
     address public resolver;
     bool public reverseRecord;
@@ -177,14 +179,10 @@ contract DC is Pausable, Ownable {
 
     /**
      * @dev `available` calls RegistrarController to check if a name is available
-     * @param name The name to be checked being registered
+     * @param _name The name to be checked being registered
      */
-    function available(string memory name) public view returns (bool) {
-        NameRecord storage record = nameRecords[keccak256(bytes(name))];
-
-        return
-            registrarController.available(name) &&
-            (record.renter == address(0) || uint256(record.expirationTime) + gracePeriod <= block.timestamp);
+    function available(string memory _name) public view returns (bool) {
+        return registrarController.available(_name);
     }
 
     /**
@@ -235,13 +233,6 @@ contract DC is Pausable, Ownable {
         return ensPrice + baseRentalPrice;
     }
 
-    function _updateLinkedListWithNewName(NameRecord storage nameRecord, string memory name) internal {
-        nameRecords[keccak256(bytes(lastRented))].next = name;
-        nameRecord.prev = lastRented;
-        lastRented = name;
-        keys.push(keccak256(bytes(name)));
-    }
-
     /**
      * @dev `register` calls RegistrarController register and is used to register a name
      * this also takes a fee for the web2 registration which is held by DC.sol a check is made to ensure the value sent is sufficient for both fees
@@ -287,7 +278,7 @@ contract DC is Pausable, Ownable {
      * @param owner The owner address of the name to be registered
      * @param secret A random secret passed by the client
      */
-    function _register(string calldata name, address owner, bytes32 secret) internal whenNotPaused {
+    function _register(string calldata name, address owner, bytes32 secret) internal {
         uint256 ensPrice = getENSPrice(name);
         bytes[] memory emptyData;
         registrarController.register{value: ensPrice}(
@@ -301,6 +292,13 @@ contract DC is Pausable, Ownable {
             fuses,
             wrapperExpiry
         );
+    }
+
+    function _updateLinkedListWithNewName(NameRecord storage nameRecord, string memory name) internal {
+        nameRecords[keccak256(bytes(lastRented))].next = name;
+        nameRecord.prev = lastRented;
+        lastRented = name;
+        keys.push(keccak256(bytes(name)));
     }
 
     /**
@@ -398,5 +396,11 @@ contract DC is Pausable, Ownable {
 
         (bool success, ) = revenueAccount.call{value: address(this).balance}("");
         require(success, "Failed to withdraw");
+    }
+
+    function getDominData(string memory _name) public view returns (address owner, uint256 expireAt) {
+        uint256 label = uint256(keccak256(bytes(_name)));
+        (owner, , ) = tldNameWrapper.getData(label);
+        expireAt = baseRegistrar.nameExpires(label);
     }
 }
