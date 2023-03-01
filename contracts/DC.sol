@@ -3,6 +3,7 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 import "./interfaces/IRegistrarController.sol";
@@ -21,7 +22,7 @@ import "./interfaces/ITLDNameWrapper.sol";
     the register function.
 
  */
-contract DC is Pausable, Ownable {
+contract DC is Ownable, ReentrancyGuard, Pausable {
     uint256 public gracePeriod;
     uint256 public baseRentalPrice;
     address public revenueAccount;
@@ -236,6 +237,7 @@ contract DC is Pausable, Ownable {
 
     function getPrice(string memory name) public view returns (uint256) {
         uint256 ensPrice = getENSPrice(name);
+
         return ensPrice + baseRentalPrice;
     }
 
@@ -270,11 +272,7 @@ contract DC is Pausable, Ownable {
         emit NameRented(name, to, price);
 
         // Return any excess funds
-        uint256 excess = msg.value - price;
-        if (excess > 0) {
-            (bool success, ) = msg.sender.call{value: excess}("");
-            require(success, "Cannot refund excess");
-        }
+        _refundExcess(msg.value, price);
     }
 
     /**
@@ -331,11 +329,8 @@ contract DC is Pausable, Ownable {
 
         emit NameRenewed(name, nameRecord.renter, price);
 
-        uint256 excess = msg.value - price;
-        if (excess > 0) {
-            (bool success, ) = msg.sender.call{value: excess}("");
-            require(success, "Cannot refund excess");
-        }
+        // Return any excess funds
+        _refundExcess(msg.value, price);
     }
 
     function getReinstateCost(string calldata name) public view returns (uint256) {
@@ -356,16 +351,15 @@ contract DC is Pausable, Ownable {
         return charge;
     }
 
-    function reinstate(string calldata name) public payable whenNotPaused {
-        uint256 tokenId = uint256(keccak256(bytes(name)));
+    function reinstate(string calldata _name) public payable whenNotPaused {
+        uint256 tokenId = uint256(keccak256(bytes(_name)));
         NameRecord storage nameRecord = nameRecords[bytes32(tokenId)];
-        require(!registrarController.available(name), "Cannot reinstate an available name in ENS");
+        require(!registrarController.available(_name), "Cannot reinstate an available name in ENS");
 
-        uint256 expiration = baseRegistrar.nameExpires(tokenId);
+        (address domainOwner, uint256 expiration) = getDominOwner(_name);
         require(expiration > block.timestamp, "Name expired");
 
-        address domainOwner = baseRegistrar.ownerOf(tokenId);
-        uint256 charge = getReinstateCost(name);
+        uint256 charge = getReinstateCost(_name);
         require(msg.value >= charge, "Insufficient payment");
 
         nameRecord.expirationTime = expiration;
@@ -373,19 +367,16 @@ contract DC is Pausable, Ownable {
             nameRecord.rentTime = block.timestamp;
         }
         if (nameRecord.renter == address(0)) {
-            _updateLinkedListWithNewName(nameRecord, name);
+            _updateLinkedListWithNewName(nameRecord, _name);
         }
 
-        emit NameReinstated(name, domainOwner, charge, nameRecord.renter);
+        emit NameReinstated(_name, domainOwner, charge, nameRecord.renter);
 
         nameRecord.renter = domainOwner;
         nameRecord.lastPrice = charge;
 
-        uint256 excess = msg.value - charge;
-        if (excess > 0) {
-            (bool success, ) = msg.sender.call{value: excess}("");
-            require(success, "Cannot refund excess");
-        }
+        // Return any excess funds
+        _refundExcess(msg.value, charge);
     }
 
     // function updateURL(string calldata name, string calldata url) public payable whenNotPaused {
@@ -397,16 +388,24 @@ contract DC is Pausable, Ownable {
     //     nameRecords[keccak256(bytes(name))].url = url;
     // }
 
+    function getDominOwner(string memory _name) public view returns (address owner, uint256 expireAt) {
+        uint256 tokenId = uint256(keccak256(bytes(_name)));
+        (owner, , ) = tldNameWrapper.getData(tokenId);
+        expireAt = baseRegistrar.nameExpires(tokenId);
+    }
+
+    function _refundExcess(uint256 _received, uint256 _want) internal nonReentrant {
+        uint256 excess = _received - _want;
+        if (excess > 0) {
+            (bool success, ) = msg.sender.call{value: excess}("");
+            require(success, "Cannot refund excess");
+        }
+    }
+
     function withdraw() external {
         require(msg.sender == owner() || msg.sender == revenueAccount, "Owner or revenue account");
 
         (bool success, ) = revenueAccount.call{value: address(this).balance}("");
         require(success, "Failed to withdraw");
-    }
-
-    function getDominData(string memory _name) public view returns (address owner, uint256 expireAt) {
-        uint256 label = uint256(keccak256(bytes(_name)));
-        (owner, , ) = tldNameWrapper.getData(label);
-        expireAt = baseRegistrar.nameExpires(label);
     }
 }
