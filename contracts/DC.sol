@@ -43,9 +43,10 @@ contract DC is Pausable, Ownable {
         address revenueAccount;
         uint64 wrapperExpiry;
         uint32 fuses;
-        // 61-bytes
+        // 81-bytes
         address registrarController;
         address baseRegistrar;
+        address tldNameWrapper;
         address resolver;
         bool reverseRecord;
     }
@@ -84,6 +85,7 @@ contract DC is Pausable, Ownable {
 
         setRegistrarController(_initConfig.registrarController);
         setBaseRegistrar(_initConfig.baseRegistrar);
+        setTLDNameWrapper(_initConfig.tldNameWrapper);
         setResolver(_initConfig.resolver);
         setReverseRecord(_initConfig.reverseRecord);
     }
@@ -128,6 +130,10 @@ contract DC is Pausable, Ownable {
 
     function setBaseRegistrar(address _baseRegistrar) public onlyOwner {
         baseRegistrar = IBaseRegistrar(_baseRegistrar);
+    }
+
+    function setTLDNameWrapper(address _tldNameWrapper) public onlyOwner {
+        tldNameWrapper = ITLDNameWrapper(_tldNameWrapper);
     }
 
     function setDuration(uint256 _duration) public onlyOwner {
