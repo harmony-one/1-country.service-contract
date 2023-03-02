@@ -23,19 +23,6 @@ import "./interfaces/ITLDNameWrapper.sol";
 
  */
 contract DC is Ownable, ReentrancyGuard, Pausable {
-    uint256 public gracePeriod;
-    uint256 public baseRentalPrice;
-    address public revenueAccount;
-    IRegistrarController public registrarController;
-    IBaseRegistrar public baseRegistrar;
-    ITLDNameWrapper public tldNameWrapper;
-    uint256 public duration;
-    address public resolver;
-    bool public reverseRecord;
-    uint32 public fuses;
-    uint64 public wrapperExpiry;
-    bool public initialized;
-
     struct InitConfiguration {
         uint256 baseRentalPrice;
         uint256 duration;
@@ -61,6 +48,19 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
         string prev;
         string next;
     }
+
+    uint256 public gracePeriod;
+    uint256 public baseRentalPrice;
+    address public revenueAccount;
+    IRegistrarController public registrarController;
+    IBaseRegistrar public baseRegistrar;
+    ITLDNameWrapper public tldNameWrapper;
+    uint256 public duration;
+    address public resolver;
+    bool public reverseRecord;
+    uint32 public fuses;
+    uint64 public wrapperExpiry;
+    bool public initialized;
 
     mapping(bytes32 => NameRecord) public nameRecords;
     string public lastRented;
