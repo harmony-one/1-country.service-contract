@@ -18,20 +18,37 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
     /// @dev Domain Key -> URL -> Emoji count
     mapping(bytes32 => mapping(string => uint256)) public emojis;
 
-    /// @dev Prices for the url and emoji
+    /// @dev Prices for url and emoji management
     uint256 public urlPrice;
     uint256 public emojiPrice;
 
     event URLAdded(address indexed user, string indexed domain, string indexed url);
-    event URLUpdated(address indexed user, string indexed domain, uint256 urlIndex, string oldURL, string indexed newURL);
+    event URLUpdated(
+        address indexed user,
+        string indexed domain,
+        uint256 urlIndex,
+        string oldURL,
+        string indexed newURL
+    );
     event URLRemoved(address indexed user, string indexed domain, uint256 urlIndex, string indexed url);
     event AllURLsRemoved(address indexed user, string indexed domain);
     event EmojiAdded(address indexed user, string indexed domain, string indexed url, uint256 emojiIndex);
 
     modifier onlyValidDomainAndOwner(string memory _domain) {
         address dc = addressRegistry.dc();
-        (address domainOwner, uint256 expireAt) = IDC(dc).getDomainOwner(_domain);
+        bytes32 key = keccak256(bytes(_domain));
+        (address domainOwner, , uint256 expireAt, , , ) = IDC(dc).nameRecords(key);
+
         require(msg.sender == domainOwner, "Only domain owner");
+        require(block.timestamp < expireAt, "Domain expired");
+        _;
+    }
+
+    modifier onlyValidDomain(string memory _domain) {
+        address dc = addressRegistry.dc();
+        bytes32 key = keccak256(bytes(_domain));
+        (, , uint256 expireAt, , , ) = IDC(dc).nameRecords(key);
+
         require(block.timestamp < expireAt, "Domain expired");
         _;
     }
@@ -42,6 +59,10 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
 
     function setURLPrice(uint256 _urlPrice) external onlyOwner {
         urlPrice = _urlPrice;
+    }
+
+    function setEmojiPrice(uint256 _emojiPrice) external onlyOwner {
+        emojiPrice = _emojiPrice;
     }
 
     function addURL(
@@ -99,7 +120,9 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
         emit URLRemoved(msg.sender, _domain, _index, urlToRemove);
     }
 
-    function removeAllURLs(string calldata _domain) external payable onlyValidDomainAndOwner(_domain) nonReentrant whenNotPaused {
+    function removeAllURLs(
+        string calldata _domain
+    ) external payable onlyValidDomainAndOwner(_domain) nonReentrant whenNotPaused {
         require(msg.value == getURLPrice(), "Incorrect payment");
 
         bytes32 key = keccak256(bytes(_domain));
