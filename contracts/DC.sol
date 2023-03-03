@@ -5,6 +5,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
+import "./interfaces/IDC.sol";
+import "./interfaces/IAddressRegistry.sol";
+import "./interfaces/IDCManagement.sol";
 import "./interfaces/IRegistrarController.sol";
 import "./interfaces/IBaseRegistrar.sol";
 import "./interfaces/ITLDNameWrapper.sol";
@@ -21,32 +24,9 @@ import "./interfaces/ITLDNameWrapper.sol";
     the register function.
 
  */
-contract DC is Ownable, ReentrancyGuard, Pausable {
-    struct InitConfiguration {
-        uint256 baseRentalPrice;
-        uint256 duration;
-        uint256 gracePeriod;
-        // 32-bytes block
-        address revenueAccount;
-        uint64 wrapperExpiry;
-        uint32 fuses;
-        // 81-bytes
-        address registrarController;
-        address baseRegistrar;
-        address tldNameWrapper;
-        address resolver;
-        bool reverseRecord;
-    }
-
-    struct NameRecord {
-        address renter;
-        uint256 rentTime;
-        uint256 expirationTime;
-        uint256 lastPrice;
-        // string url;
-        string prev;
-        string next;
-    }
+contract DC is IDC, Ownable, ReentrancyGuard, Pausable {   
+    /// @dev AddressRegistry
+    IAddressRegistry public addressRegistry;
 
     uint256 public gracePeriod;
     uint256 public baseRentalPrice;
@@ -73,7 +53,9 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
 
     receive() external payable {}
 
-    constructor(InitConfiguration memory _initConfig) {
+    constructor(address _addressRegistry, InitConfiguration memory _initConfig) {
+        setAddressRegistry(_addressRegistry);
+
         setBaseRentalPrice(_initConfig.baseRentalPrice);
         setDuration(_initConfig.duration);
         setGracePeriod(_initConfig.gracePeriod);
@@ -114,6 +96,10 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
     }
 
     // admin functions
+    function setAddressRegistry(address _addressRegistry) public onlyOwner {
+        addressRegistry = IAddressRegistry(_addressRegistry);
+    }
+
     function setBaseRentalPrice(uint256 _baseRentalPrice) public onlyOwner {
         baseRentalPrice = _baseRentalPrice;
     }
@@ -265,6 +251,8 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
 
         _updateLinkedListWithNewName(nameRecord, name);
 
+        IDCManagement(addressRegistry.dcManagement()).onRegister(name, to, nameRecords[bytes32(tokenId)]);
+
         emit NameRented(name, to, price);
     }
 
@@ -346,7 +334,7 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
         NameRecord storage nameRecord = nameRecords[bytes32(tokenId)];
         require(!registrarController.available(_name), "Cannot reinstate an available name in ENS");
 
-        (address domainOwner, uint256 expiration) = getDominOwner(_name);
+        (address domainOwner, uint256 expiration) = getDominOwnerOnENS(_name);
         require(expiration > block.timestamp, "Name expired");
 
         uint256 charge = getReinstateCost(_name);
@@ -366,7 +354,7 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
         nameRecord.lastPrice = charge;
     }
 
-    function getDominOwner(string memory _name) public view returns (address owner, uint256 expireAt) {
+    function getDominOwnerOnENS(string memory _name) public view returns (address owner, uint256 expireAt) {
         uint256 tokenId = uint256(keccak256(bytes(_name)));
         (owner, , ) = tldNameWrapper.getData(tokenId);
         expireAt = baseRegistrar.nameExpires(tokenId);
