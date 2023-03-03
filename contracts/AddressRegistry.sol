@@ -6,10 +6,17 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 contract AddressRegistry is Initializable, OwnableUpgradeable {
     address public dc;
+    address public dcManagement;
     address public post;
 
     event DCAddressUpdated(address indexed oldDCAddress, address indexed newDCAddress);
+    event DCManagementAddressUpdated(address indexed oldDCManagementAddress, address indexed newDCManagementAddress);
     event PostAddressUpdated(address indexed oldPostAddress, address indexed newPostAddress);
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize() external initializer {
         __Ownable_init();
@@ -20,6 +27,13 @@ contract AddressRegistry is Initializable, OwnableUpgradeable {
 
         emit DCAddressUpdated(dc, _dc);
         dc = _dc;
+    }
+
+    function setDCManagement(address _dcManagement) external onlyOwner {
+        require(_dcManagement != address(0), "Zero address");
+
+        emit DCManagementAddressUpdated(dcManagement, _dcManagement);
+        dcManagement = _dcManagement;
     }
 
     function setPost(address _post) external onlyOwner {
