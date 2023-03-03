@@ -69,7 +69,6 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
     event NameRented(string indexed name, address indexed renter, uint256 price);
     event NameRenewed(string indexed name, address indexed renter, uint256 price);
     event NameReinstated(string indexed name, address indexed renter, uint256 price, address oldRenter);
-    // event URLUpdated(string indexed name, address indexed renter, string oldUrl, string newUrl);
     event RevenueAccountChanged(address indexed from, address indexed to);
 
     receive() external payable {}
@@ -377,15 +376,6 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
         // Return any excess funds
         _refundExcess(msg.value, charge);
     }
-
-    // function updateURL(string calldata name, string calldata url) public payable whenNotPaused {
-    //     NameRecord storage r = nameRecords[keccak256(bytes(name))];
-    //     require(r.renter == msg.sender, "DC: not owner");
-    //     require(r.expirationTime > block.timestamp, "DC: expired");
-    //     require(bytes(url).length <= 1024, "DC: url too long");
-    //     emit URLUpdated(name, msg.sender, nameRecords[keccak256(bytes(name))].url, url);
-    //     nameRecords[keccak256(bytes(name))].url = url;
-    // }
 
     function getDominOwner(string memory _name) public view returns (address owner, uint256 expireAt) {
         uint256 tokenId = uint256(keccak256(bytes(_name)));
