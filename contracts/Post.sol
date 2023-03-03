@@ -9,18 +9,28 @@ import "./interfaces/IAddressRegistry.sol";
 import "./interfaces/IDC.sol";
 
 contract Post is Ownable, ReentrancyGuard, Pausable {
+    /// @dev AddressRegistry
     IAddressRegistry public addressRegistry;
+
+    /// @dev Domain Key -> URL -> Emoji count
     mapping(bytes32 => string[]) public postURLs;
-    uint256 public price;
 
-    event URLAdded(address indexed user, string indexed name, string indexed url);
-    event URLUpdated(address indexed user, string indexed name, uint256 index, string oldURL, string indexed newURL);
-    event URLRemoved(address indexed user, string indexed name, uint256 index, string indexed url);
-    event AllURLsRemoved(address indexed user, string indexed name);
+    /// @dev Domain Key -> URL -> Emoji count
+    mapping(bytes32 => mapping(string => uint256)) public emojis;
 
-    modifier onlyValidDomainAndOwner(string memory _name) {
+    /// @dev Prices for the url and emoji
+    uint256 public urlPrice;
+    uint256 public emojiPrice;
+
+    event URLAdded(address indexed user, string indexed domain, string indexed url);
+    event URLUpdated(address indexed user, string indexed domain, uint256 urlIndex, string oldURL, string indexed newURL);
+    event URLRemoved(address indexed user, string indexed domain, uint256 urlIndex, string indexed url);
+    event AllURLsRemoved(address indexed user, string indexed domain);
+    event EmojiAdded(address indexed user, string indexed domain, string indexed url, uint256 emojiIndex);
+
+    modifier onlyValidDomainAndOwner(string memory _domain) {
         address dc = addressRegistry.dc();
-        (address domainOwner, uint256 expireAt) = IDC(dc).getDomainOwner(_name);
+        (address domainOwner, uint256 expireAt) = IDC(dc).getDomainOwner(_domain);
         require(msg.sender == domainOwner, "Only domain owner");
         require(block.timestamp < expireAt, "Domain expired");
         _;
@@ -30,40 +40,50 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
         addressRegistry = IAddressRegistry(_addressRegistry);
     }
 
-    function setPrice(uint256 _price) external onlyOwner {
-        price = _price;
+    function setURLPrice(uint256 _urlPrice) external onlyOwner {
+        urlPrice = _urlPrice;
     }
 
-    function addURL(string calldata _name, string calldata _url) external payable onlyValidDomainAndOwner(_name) nonReentrant whenNotPaused {
-        bytes32 key = keccak256(bytes(_name));
+    function addURL(
+        string calldata _domain,
+        string calldata _url
+    ) external payable onlyValidDomainAndOwner(_domain) nonReentrant whenNotPaused {
+        bytes32 key = keccak256(bytes(_domain));
 
         require(postURLs[key].length < 32, "Too long");
-        require(msg.value == getPrice(), "Incorrect payment");
+        require(msg.value == getURLPrice(), "Incorrect payment");
 
         postURLs[key].push(_url);
 
-        emit URLAdded(msg.sender, _name, _url);
+        emit URLAdded(msg.sender, _domain, _url);
     }
 
-    function updateURL(string calldata _name, uint256 _index, string calldata _url) external payable onlyValidDomainAndOwner(_name) nonReentrant whenNotPaused {
-        bytes32 key = keccak256(bytes(_name));
+    function updateURL(
+        string calldata _domain,
+        uint256 _index,
+        string calldata _url
+    ) external payable onlyValidDomainAndOwner(_domain) nonReentrant whenNotPaused {
+        bytes32 key = keccak256(bytes(_domain));
         uint256 urlCount = postURLs[key].length;
 
         require(postURLs[key].length < 32, "Too long");
         require(_index < urlCount, "Invalid index");
-        require(msg.value == getPrice(), "Incorrect payment");
+        require(msg.value == getURLPrice(), "Incorrect payment");
 
-        emit URLUpdated(msg.sender, _name, _index, postURLs[key][_index], _url);
+        emit URLUpdated(msg.sender, _domain, _index, postURLs[key][_index], _url);
 
         postURLs[key][_index] = _url;
     }
 
-    function removeURL(string calldata _name, uint256 _index) external payable onlyValidDomainAndOwner(_name) nonReentrant whenNotPaused {
-        bytes32 key = keccak256(bytes(_name));
+    function removeURL(
+        string calldata _domain,
+        uint256 _index
+    ) external payable onlyValidDomainAndOwner(_domain) nonReentrant whenNotPaused {
+        bytes32 key = keccak256(bytes(_domain));
         uint256 urlCount = postURLs[key].length;
 
         require(_index < urlCount, "Invalid index");
-        require(msg.value == getPrice(), "Incorrect payment");
+        require(msg.value == getURLPrice(), "Incorrect payment");
 
         // remove the url and keep the order
         string memory urlToRemove = postURLs[key][_index];
@@ -76,20 +96,20 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
         }
         postURLs[key].pop();
 
-        emit URLRemoved(msg.sender, _name, _index, urlToRemove);
+        emit URLRemoved(msg.sender, _domain, _index, urlToRemove);
     }
 
-    function removeAllURLs(string calldata _name) external payable onlyValidDomainAndOwner(_name) whenNotPaused {
-        require(msg.value == getPrice(), "Incorrect payment");
+    function removeAllURLs(string calldata _domain) external payable onlyValidDomainAndOwner(_domain) nonReentrant whenNotPaused {
+        require(msg.value == getURLPrice(), "Incorrect payment");
 
-        bytes32 key = keccak256(bytes(_name));
+        bytes32 key = keccak256(bytes(_domain));
         delete postURLs[key];
 
-        emit AllURLsRemoved(msg.sender, _name);
+        emit AllURLsRemoved(msg.sender, _domain);
     }
 
-    function getURL(string calldata _name, uint256 _index) external view returns (string memory) {
-        bytes32 key = keccak256(bytes(_name));
+    function getURL(string calldata _domain, uint256 _index) external view returns (string memory) {
+        bytes32 key = keccak256(bytes(_domain));
         uint256 urlCount = postURLs[key].length;
         require(_index < urlCount, "Invalid index");
 
@@ -98,20 +118,25 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
         return url;
     }
 
-    function getAllURLs(string calldata _name) external view returns (string[] memory) {
-        bytes32 key = keccak256(bytes(_name));
+    function getAllURLs(string calldata _domain) external view returns (string[] memory) {
+        bytes32 key = keccak256(bytes(_domain));
         string[] memory urls = postURLs[key];
 
         return urls;
     }
 
-    function getURLCount(string calldata _name) external view returns (uint256) {
-        bytes32 key = keccak256(bytes(_name));
+    function getURLCount(string calldata _domain) external view returns (uint256) {
+        bytes32 key = keccak256(bytes(_domain));
 
         return postURLs[key].length;
     }
 
-    function getPrice() public view returns (uint256) {
-        return price;
+    function getURLPrice() public view returns (uint256) {
+        return urlPrice;
+    }
+
+    function withdraw(address _to) external onlyOwner {
+        (bool success, ) = _to.call{value: address(this).balance}("");
+        require(success, "Failed to withdraw");
     }
 }
