@@ -250,7 +250,7 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
         // require(bytes(url).length <= 1024, "URL too long");
 
         uint256 price = getPrice(name);
-        require(price <= msg.value, "Insufficient payment");
+        require(price == msg.value, "Insufficient payment");
         require(available(name), "Name unavailable");
 
         _register(name, to, secret);
@@ -262,15 +262,10 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
         nameRecord.lastPrice = price;
         nameRecord.rentTime = block.timestamp;
         nameRecord.expirationTime = block.timestamp + duration;
-        // if (bytes(url).length > 0) {
-        //     nameRecord.url = url;
-        // }
+
         _updateLinkedListWithNewName(nameRecord, name);
 
         emit NameRented(name, to, price);
-
-        // Return any excess funds
-        _refundExcess(msg.value, price);
     }
 
     /**
@@ -318,7 +313,7 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
 
         uint256 ensPrice = getENSPrice(name);
         uint256 price = baseRentalPrice + ensPrice;
-        require(price <= msg.value, "Insufficient payment");
+        require(price == msg.value, "Insufficient payment");
 
         registrarController.renew{value: ensPrice}(name, duration);
 
@@ -326,9 +321,6 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
         nameRecord.expirationTime += duration;
 
         emit NameRenewed(name, nameRecord.renter, price);
-
-        // Return any excess funds
-        _refundExcess(msg.value, price);
     }
 
     function getReinstateCost(string calldata name) public view returns (uint256) {
@@ -358,7 +350,7 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
         require(expiration > block.timestamp, "Name expired");
 
         uint256 charge = getReinstateCost(_name);
-        require(msg.value >= charge, "Insufficient payment");
+        require(msg.value == charge, "Insufficient payment");
 
         nameRecord.expirationTime = expiration;
         if (nameRecord.rentTime == 0) {
@@ -372,23 +364,12 @@ contract DC is Ownable, ReentrancyGuard, Pausable {
 
         nameRecord.renter = domainOwner;
         nameRecord.lastPrice = charge;
-
-        // Return any excess funds
-        _refundExcess(msg.value, charge);
     }
 
     function getDominOwner(string memory _name) public view returns (address owner, uint256 expireAt) {
         uint256 tokenId = uint256(keccak256(bytes(_name)));
         (owner, , ) = tldNameWrapper.getData(tokenId);
         expireAt = baseRegistrar.nameExpires(tokenId);
-    }
-
-    function _refundExcess(uint256 _received, uint256 _want) internal nonReentrant {
-        uint256 excess = _received - _want;
-        if (excess > 0) {
-            (bool success, ) = msg.sender.call{value: excess}("");
-            require(success, "Cannot refund excess");
-        }
     }
 
     function withdraw() external {
