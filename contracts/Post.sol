@@ -25,8 +25,8 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
     mapping(bytes32 => mapping(string => mapping(uint256 => uint256))) public postEmojis;
 
     /// @dev Domain Key -> URL -> Emoji Id -> Reactors of the current existing emoji
-    mapping(bytes32 => mapping(string => mapping(uint256 => EnumerableSetUpgradeable.AddressSet)))
-        public postEmojiReactors;
+    mapping(bytes32 => mapping(string => mapping(uint256 => EnumerableSet.AddressSet)))
+        private postEmojiReactors;
 
     /// @dev Domain Key -> URL -> Emoji Id -> Accumulated emoji count
     mapping(bytes32 => mapping(string => mapping(uint256 => uint256))) public accPostEmojis;
@@ -188,34 +188,36 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
         emojiNames.push(_emojiName);
     }
 
-    function addEmojiOnPost(addres _domain, string calldata _url, uint256 _emojiIndex) external payable {
-        bool exist = postEmojiReactors[_domain][_url][_emojiIndex].add(msg.sender);
+    function addEmojiOnPost(string calldata _domain, string calldata _url, uint256 _emojiIndex) external payable {
+        bytes32 key = keccak256(bytes(_domain));
+        bool exist = postEmojiReactors[key][_url][_emojiIndex].add(msg.sender);
 
         if (!exist) {
             require(msg.value == 0, "Aleady reacted");
         } else {
             require(msg.value == emojiPrice, "Incorrect payment");
 
-            bytes32 key = keccak256(bytes(_domain));
             ++postEmojis[key][_url][_emojiIndex];
             ++accPostEmojis[key][_url][_emojiIndex];
         }
     }
 
     function getEmojiReactorCountOnPost(
-        address _domain,
+        string calldata _domain,
         string calldata _url,
         uint256 _emojiIndex
     ) external returns (uint256) {
-        postEmojiReactors[_domain][_url][_emojiIndex].length();
+        bytes32 key = keccak256(bytes(_domain));
+        postEmojiReactors[key][_url][_emojiIndex].length();
     }
 
     function getEmojiReactorsOnPost(
-        address _domain,
+        string calldata _domain,
         string calldata _url,
         uint256 _emojiIndex
     ) external returns (address[] memory) {
-        postEmojiReactors[_domain][_url][_emojiIndex].values();
+        bytes32 key = keccak256(bytes(_domain));
+        postEmojiReactors[key][_url][_emojiIndex].values();
     }
 
     function withdraw(address _to) external onlyOwner {
