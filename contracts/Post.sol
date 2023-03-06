@@ -4,19 +4,32 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import "./interfaces/IAddressRegistry.sol";
 import "./interfaces/IDC.sol";
 
 contract Post is Ownable, ReentrancyGuard, Pausable {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     /// @dev AddressRegistry
     IAddressRegistry public addressRegistry;
 
-    /// @dev Domain Key -> URL -> Emoji count
+    /// @dev Domain Key -> URLs
     mapping(bytes32 => string[]) public postURLs;
 
-    /// @dev Domain Key -> URL -> Emoji count
-    mapping(bytes32 => mapping(string => uint256)) public emojis;
+    /// @dev Emoji Id -> String
+    string[] public emojiNames;
+
+    /// @dev Domain Key -> URL -> Emoji Id -> Emoji count
+    mapping(bytes32 => mapping(string => mapping(uint256 => uint256))) public postEmojis;
+
+    /// @dev Domain Key -> URL -> Emoji Id -> Reactors of the current existing emoji
+    mapping(bytes32 => mapping(string => mapping(uint256 => EnumerableSetUpgradeable.AddressSet)))
+        public postEmojiReactors;
+
+    /// @dev Domain Key -> URL -> Emoji Id -> Accumulated emoji count
+    mapping(bytes32 => mapping(string => mapping(uint256 => uint256))) public accPostEmojis;
 
     /// @dev Prices for url and emoji management
     uint256 public urlPrice;
@@ -50,6 +63,11 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
         (, , uint256 expireAt, , , ) = IDC(dc).nameRecords(key);
 
         require(block.timestamp < expireAt, "Domain expired");
+        _;
+    }
+
+    modifier onlyDCManagement() {
+        require(msg.sender == addressRegistry.dcManagement(), "Only DCManagement");
         _;
     }
 
@@ -125,6 +143,14 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
     ) external payable onlyValidDomainAndOwner(_domain) nonReentrant whenNotPaused {
         require(msg.value == getURLPrice(), "Incorrect payment");
 
+        _removeAllURLs(_domain);
+    }
+
+    function removeAllURLsByDCManagement(string calldata _domain) external onlyDCManagement {
+        _removeAllURLs(_domain);
+    }
+
+    function _removeAllURLs(string calldata _domain) internal {
         bytes32 key = keccak256(bytes(_domain));
         delete postURLs[key];
 
@@ -156,6 +182,40 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
 
     function getURLPrice() public view returns (uint256) {
         return urlPrice;
+    }
+
+    function addEmojiName(string calldata _emojiName) external onlyOwner {
+        emojiNames.push(_emojiName);
+    }
+
+    function addEmojiOnPost(addres _domain, string calldata _url, uint256 _emojiIndex) external payable {
+        bool exist = postEmojiReactors[_domain][_url][_emojiIndex].add(msg.sender);
+
+        if (!exist) {
+            require(msg.value == 0, "Aleady reacted");
+        } else {
+            require(msg.value == emojiPrice, "Incorrect payment");
+
+            bytes32 key = keccak256(bytes(_domain));
+            ++postEmojis[key][_url][_emojiIndex];
+            ++accPostEmojis[key][_url][_emojiIndex];
+        }
+    }
+
+    function getEmojiReactorCountOnPost(
+        address _domain,
+        string calldata _url,
+        uint256 _emojiIndex
+    ) external returns (uint256) {
+        postEmojiReactors[_domain][_url][_emojiIndex].length();
+    }
+
+    function getEmojiReactorsOnPost(
+        address _domain,
+        string calldata _url,
+        uint256 _emojiIndex
+    ) external returns (address[] memory) {
+        postEmojiReactors[_domain][_url][_emojiIndex].values();
     }
 
     function withdraw(address _to) external onlyOwner {
