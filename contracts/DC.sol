@@ -22,9 +22,8 @@ import "./interfaces/ITLDNameWrapper.sol";
     An example would be as follows Alice registers alice.com and calls the register function with an amount of 10,000 ONE.
     5000 ONE would be held by the DC contract and the remaining 5000 funds would be sent to the RegistrarController using 
     the register function.
-
  */
-contract DC is IDC, Ownable, ReentrancyGuard, Pausable {   
+contract DC is IDC, Ownable, ReentrancyGuard, Pausable {
     /// @dev AddressRegistry
     IAddressRegistry public addressRegistry;
 
@@ -352,6 +351,8 @@ contract DC is IDC, Ownable, ReentrancyGuard, Pausable {
 
         nameRecord.renter = domainOwner;
         nameRecord.lastPrice = charge;
+
+        IDCManagement(addressRegistry.dcManagement()).onRegister(_name, domainOwner, nameRecords[bytes32(tokenId)]);
     }
 
     function getDominOwnerOnENS(string memory _name) public view returns (address owner, uint256 expireAt) {

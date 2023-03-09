@@ -25,8 +25,7 @@ contract Post is Ownable, ReentrancyGuard, Pausable {
     mapping(bytes32 => mapping(string => mapping(uint256 => uint256))) public postEmojis;
 
     /// @dev Domain Key -> URL -> Emoji Id -> Reactors of the current existing emoji
-    mapping(bytes32 => mapping(string => mapping(uint256 => EnumerableSet.AddressSet)))
-        private postEmojiReactors;
+    mapping(bytes32 => mapping(string => mapping(uint256 => EnumerableSet.AddressSet))) private postEmojiReactors;
 
     /// @dev Domain Key -> URL -> Emoji Id -> Accumulated emoji count
     mapping(bytes32 => mapping(string => mapping(uint256 => uint256))) public accPostEmojis;
