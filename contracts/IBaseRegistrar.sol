@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+// SPDX-License-Identifier: CC-BY-NC-4.0
+
+pragma solidity ~0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 

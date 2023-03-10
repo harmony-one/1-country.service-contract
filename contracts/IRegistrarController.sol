@@ -1,15 +1,18 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+// SPDX-License-Identifier: CC-BY-NC-4.0
+
+pragma solidity ~0.8.17;
 
 interface IRegistrarController {
-    function base() external view returns (address);
+    function base() external view returns(address);
 
     struct Price {
         uint256 base;
         uint256 premium;
     }
-
-    function rentPrice(string memory, uint256) external view returns (Price memory);
+    function rentPrice(string memory, uint256)
+        external
+        view
+        returns (Price memory);
 
     function available(string memory) external view returns (bool);
 
