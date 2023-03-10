@@ -7,6 +7,7 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./IDC.sol";
+
 /**
     @title Tweet Service (.country)
     @notice The Tweet service allows users to display tweets of their choice in the .country domain they leased. It charges a flatfee for activation of the service
@@ -94,18 +95,19 @@ contract Tweet is Pausable, Ownable {
         // Return any excess funds
         uint256 excess = msg.value - baseRentalPrice;
         if (excess > 0) {
-            (bool success,) = msg.sender.call{value : excess}("");
+            (bool success, ) = msg.sender.call{value: excess}("");
             require(success, "cannot refund excess");
         }
     }
 
-    modifier activeOwnerOnly(string calldata name){
+    modifier activeOwnerOnly(string calldata name) {
         require(dc.ownerOf(name) == msg.sender, "Tweet: not name owner");
         uint256 tokenId = uint256(keccak256(bytes(name)));
         require(activated[bytes32(tokenId)], "Tweet: not activated");
         require(dc.nameExpires(name) > block.timestamp, "Tweet: name expired");
         _;
     }
+
     function addURL(string calldata name, string calldata url) public whenNotPaused activeOwnerOnly(name) {
         bytes32 key = keccak256(bytes(name));
         require(urls[key].length < 64, "Tweet: too many urls");
@@ -136,7 +138,7 @@ contract Tweet is Pausable, Ownable {
         emit URLCleared(name, msg.sender);
     }
 
-    function getAllUrls(string calldata name) public view returns (string[] memory){
+    function getAllUrls(string calldata name) public view returns (string[] memory) {
         bytes32 key = keccak256(bytes(name));
         string[] memory ret = new string[](urls[key].length);
         for (uint256 i = 0; i < urls[key].length; i++) {
@@ -147,7 +149,7 @@ contract Tweet is Pausable, Ownable {
 
     function withdraw() external {
         require(msg.sender == owner() || msg.sender == revenueAccount, "DC: must be owner or revenue account");
-        (bool success,) = revenueAccount.call{value : address(this).balance}("");
+        (bool success, ) = revenueAccount.call{value: address(this).balance}("");
         require(success, "DC: failed to withdraw");
     }
 }

@@ -35,7 +35,6 @@ contract DC is Pausable, Ownable {
         address baseRegistrar;
         address resolver;
         bool reverseRecord;
-
         uint256 duration;
     }
 
@@ -111,7 +110,18 @@ contract DC is Pausable, Ownable {
      */
     function makeCommitment(string memory name, address owner, bytes32 secret) public view returns (bytes32) {
         bytes[] memory data;
-        return registrarController.makeCommitment(name, owner, duration, secret, resolver, data, reverseRecord, fuses, wrapperExpiry);
+        return
+            registrarController.makeCommitment(
+                name,
+                owner,
+                duration,
+                secret,
+                resolver,
+                data,
+                reverseRecord,
+                fuses,
+                wrapperExpiry
+            );
     }
 
     /**
@@ -149,7 +159,7 @@ contract DC is Pausable, Ownable {
         // Return any excess funds
         uint256 excess = msg.value - price;
         if (excess > 0) {
-            (bool success,) = msg.sender.call{value : excess}("");
+            (bool success, ) = msg.sender.call{value: excess}("");
             require(success, "DC: cannot refund excess");
         }
     }
@@ -164,7 +174,17 @@ contract DC is Pausable, Ownable {
     function _register(string calldata name, address owner, bytes32 secret) internal whenNotPaused {
         uint256 ensPrice = getPrice(name);
         bytes[] memory emptyData;
-        registrarController.register{value : ensPrice}(name, owner, duration, secret, resolver, emptyData, reverseRecord, fuses, wrapperExpiry);
+        registrarController.register{value: ensPrice}(
+            name,
+            owner,
+            duration,
+            secret,
+            resolver,
+            emptyData,
+            reverseRecord,
+            fuses,
+            wrapperExpiry
+        );
     }
 
     /**
@@ -174,10 +194,10 @@ contract DC is Pausable, Ownable {
     function renew(string calldata name) public payable whenNotPaused {
         uint256 price = getPrice(name);
         require(price <= msg.value, "DC: insufficient payment");
-        registrarController.renew{value : price}(name, duration);
+        registrarController.renew{value: price}(name, duration);
         uint256 excess = msg.value - price;
         if (excess > 0) {
-            (bool success,) = msg.sender.call{value : excess}("");
+            (bool success, ) = msg.sender.call{value: excess}("");
             require(success, "cannot refund excess");
         }
     }
