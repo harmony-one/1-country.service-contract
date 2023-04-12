@@ -7,6 +7,20 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IDC.sol";
 
 contract VanityURL is Ownable, Pausable {
+    // struct VanityURLInfo {
+    //     string[] vanityURL;
+    //     address owner;
+    // }
+
+    /// @dev DC TokenId -> Alias name list
+    mapping(bytes32 => string[]) public aliasNames;
+    
+    // /// @dev DC TokenId -> Alias name owner
+    // mapping(bytes32 => address) public aliasNameOwner;
+
+    // /// @dev DC TokenID -> Alias name -> URL
+    // mapping(bytes32 => mapping(string => string)) public vanityURLs;
+
     /// @dev DC contract
     address public dc;
 
@@ -189,14 +203,21 @@ contract VanityURL is Ownable, Pausable {
     }
 
     /// @notice Returns the validity of the vanity URL
-    /// @dev If the domain is renewed, all the vanity URLs of the old domain are invalid
     /// @param _name domain name
     /// @param _aliasName alias name for the URL
     function checkURLValidity(string memory _name, string memory _aliasName) public view returns (bool) {
         bytes32 tokenId = keccak256(bytes(_name));
-        uint256 domainRegistrationAt = IDC(dc).nameExpires(_name) - IDC(dc).duration();
+        for (uint256 i = 0; i < aliasNames[tokenId].length;) {
+            if (aliasNames[tokenId][i] == _aliasName) {
+                return false;
+            }
 
-        return domainRegistrationAt < vanityURLUpdatedAt[tokenId][_aliasName] ? true : false;
+            unchecked {
+                ++i;
+            }
+        }
+        
+        return true;
     }
 
     /// @notice Withdraw funds
