@@ -1,5 +1,5 @@
 {
-  "name": "1-country-smart-contract",
+  "name": "1-country-service-smart-contract",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
