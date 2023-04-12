@@ -2,42 +2,11 @@
 pragma solidity 0.8.17;
 
 interface IDC {
-    struct InitConfiguration {
-        uint256 baseRentalPrice;
-        uint256 duration;
-        uint256 gracePeriod;
-        // 32-bytes block
-        address revenueAccount;
-        uint64 wrapperExpiry;
-        uint32 fuses;
-        // 81-bytes
-        address registrarController;
-        address baseRegistrar;
-        address tldNameWrapper;
-        address resolver;
-        bool reverseRecord;
-    }
+    function available(string memory) external view returns (bool);
 
-    struct NameRecord {
-        address renter;
-        uint256 rentTime;
-        uint256 expirationTime;
-        uint256 lastPrice;
-        string prev;
-        string next;
-    }
+    function duration() external view returns (uint256);
 
-    function nameRecords(
-        bytes32 key
-    )
-        external
-        view
-        returns (
-            address renter,
-            uint256 rentTime,
-            uint256 expirationTime,
-            uint256 lastPrice,
-            string memory prev,
-            string memory next
-        );
+    function nameExpires(string calldata) external view returns (uint256);
+
+    function ownerOf(string calldata name) external view returns (address);
 }
