@@ -1,38 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 import "./interfaces/IDC.sol";
 
-contract VanityURL is Ownable, Pausable {
-    // struct VanityURLInfo {
-    //     string[] vanityURL;
-    //     address owner;
-    // }
-
-    /// @dev DC TokenId -> Alias name list
-    mapping(bytes32 => string[]) public aliasNames;
-    
-    // /// @dev DC TokenId -> Alias name owner
-    // mapping(bytes32 => address) public aliasNameOwner;
-
-    // /// @dev DC TokenID -> Alias name -> URL
-    // mapping(bytes32 => mapping(string => string)) public vanityURLs;
+contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
+    struct VanityURLInfo {
+        string vanityURL;
+        uint256 price;
+        address owner;
+    }
 
     /// @dev DC contract
     address public dc;
 
-    /// @dev DC TokenId -> Alias Name -> URL
-    mapping(bytes32 => mapping(string => string)) public vanityURLs;
+    /// @dev DC TokenId -> Alias name list
+    mapping(bytes32 => string[]) public aliasNames;
 
-    /// @dev DC TokenId -> Alias Name -> Content Price
-    mapping(bytes32 => mapping(string => uint256)) public vanityURLPrices;
-
-    /// @dev DC Token Id -> Alias Name -> Timestamp when the URL was updated
-    /// @dev Vanity URL is valid only if domainRegistrationAt <= vanityURLUpdatedAt
-    mapping(bytes32 => mapping(string => uint256)) public vanityURLUpdatedAt;
+    /// @dev DC TokenId -> Alias Name -> VanityURLInfo
+    mapping(bytes32 => mapping(string => VanityURLInfo)) public vanityURLs;
 
     /// @dev Price for the url update
     uint256 public urlUpdatePrice;
@@ -40,15 +28,31 @@ contract VanityURL is Ownable, Pausable {
     /// @dev Fee withdrawal address
     address public revenueAccount;
 
-    event NewURLSet(address by, string indexed name, string indexed aliasName, string indexed url, uint256 price);
-    event URLDeleted(address by, string indexed name, string indexed aliasName, string indexed url);
+    event NewURLAdded(
+        address by,
+        string indexed name,
+        string indexed aliasName,
+        string indexed url,
+        uint256 price,
+        address owner
+    );
+    event URLDeleted(
+        address by,
+        string indexed name,
+        string indexed aliasName,
+        string indexed url,
+        uint256 price,
+        address owner
+    );
     event URLUpdated(
         address by,
         string indexed name,
         string indexed aliasName,
         string oldURL,
         string indexed newURL,
-        uint256 price
+        uint256 oldPrice,
+        uint256 newPrice,
+        address owner
     );
     event RevenueAccountChanged(address indexed from, address indexed to);
 
@@ -64,7 +68,15 @@ contract VanityURL is Ownable, Pausable {
         _;
     }
 
-    constructor(address _dc, uint256 _urlUpdatePrice, address _revenueAccount) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _dc, uint256 _urlUpdatePrice, address _revenueAccount) external {
+        __Pausable_init();
+        __Ownable_init();
+
         require(_dc != address(0), "VanityURL: zero address");
         require(_revenueAccount != address(0), "VanityURL: zero address");
 
@@ -93,41 +105,34 @@ contract VanityURL is Ownable, Pausable {
         revenueAccount = _revenueAccount;
     }
 
-    /// @notice Set a new URL
-    /// @dev If the domain is expired, all the vanity URL info is erased
-    /// @dev If the domain ownership is transferred but not expired, all the vanity URL info is kept
+    /// @notice Add a new URL
     /// @param _name domain name
     /// @param _aliasName alias name for the URL
     /// @param _url URL address to be redirected
     /// @param _price Price to paid for the URL access
-    function setNewURL(
+    function addNewURL(
         string calldata _name,
         string calldata _aliasName,
         string calldata _url,
         uint256 _price
     ) external payable whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+        bytes32 tokenId = keccak256(bytes(_name));
+        VanityURLInfo memory vanityURLInfo = vanityURLs[tokenId][_aliasName];
+
         require(bytes(_aliasName).length <= 1024, "VanityURL: alias too long");
         require(bytes(_url).length <= 1024, "VanityURL: url too long");
+        require(bytes(_aliasName).length != 0, "VanityURL: empty alias");
+        require(bytes(_url).length != 0, "VanityURL: empty url");
 
-        require(!checkURLValidity(_name, _aliasName), "VanityURL: url already exists");
-
-        uint256 price = urlUpdatePrice;
-        require(price <= msg.value, "VanityURL: insufficient payment");
+        require(bytes(vanityURLInfo.vanityURL).length == 0, "VanityURL: url already exists");
+        require(msg.value == vanityURLInfo.price, "VanityURL: invalid payment");
 
         // set a new URL
-        bytes32 tokenId = keccak256(bytes(_name));
-        vanityURLs[tokenId][_aliasName] = _url;
-        vanityURLPrices[tokenId][_aliasName] = _price;
-        vanityURLUpdatedAt[tokenId][_aliasName] = block.timestamp;
+        address domainOwner = IDC(dc).ownerOf(_name);
+        aliasNames[tokenId].push(_aliasName);
+        vanityURLs[tokenId][_aliasName] = VanityURLInfo({vanityURL: _url, price: _price, owner: domainOwner});
 
-        // returns the exceeded payment
-        uint256 excess = msg.value - price;
-        if (excess > 0) {
-            (bool success, ) = msg.sender.call{value: excess}("");
-            require(success, "cannot refund excess");
-        }
-
-        emit NewURLSet(msg.sender, _name, _aliasName, _url, _price);
+        emit NewURLAdded(msg.sender, _name, _aliasName, _url, _price, domainOwner);
     }
 
     /// @notice Delete the existing URL
@@ -135,21 +140,37 @@ contract VanityURL is Ownable, Pausable {
     /// @param _name domain name
     /// @param _aliasName alias name for the URL to delete
     function deleteURL(string calldata _name, string calldata _aliasName) external whenNotPaused onlyDCOwner(_name) {
-        require(checkURLValidity(_name, _aliasName), "VanityURL: url not exist");
-
         bytes32 tokenId = keccak256(bytes(_name));
-        string memory url = vanityURLs[tokenId][_aliasName];
+        VanityURLInfo memory vanityURLInfo = vanityURLs[tokenId][_aliasName];
+
+        require(bytes(vanityURLInfo.vanityURL).length != 0, "VanityURL: url does not exist");
+
+        emit URLDeleted(
+            msg.sender,
+            _name,
+            _aliasName,
+            vanityURLInfo.vanityURL,
+            vanityURLInfo.price,
+            vanityURLInfo.owner
+        );
 
         // delete the URL
-        vanityURLs[tokenId][_aliasName] = "";
-        vanityURLPrices[tokenId][_aliasName] = 0;
-        vanityURLUpdatedAt[tokenId][_aliasName] = block.timestamp;
+        uint256 aliasNameLen = aliasNames[tokenId].length;
+        for (uint256 i; i < aliasNameLen; ) {
+            if (keccak256(abi.encodePacked(aliasNames[tokenId][i])) == keccak256(abi.encodePacked(_aliasName))) {
+                aliasNames[tokenId][i] = aliasNames[tokenId][aliasNameLen - 1];
+                aliasNames[tokenId].pop();
+            }
 
-        emit URLDeleted(msg.sender, _name, _aliasName, url);
+            unchecked {
+                ++i;
+            }
+        }
+        delete vanityURLs[tokenId][_aliasName];
     }
 
     /// @notice Update the existing URL
-    /// @dev Updating the URL is not available if the domain is expired
+    /// @dev Updating the URL is not available after the domain is expired
     /// @param _name domain name
     /// @param _aliasName alias name for the URL
     /// @param _url URL address to be redirected
@@ -161,63 +182,36 @@ contract VanityURL is Ownable, Pausable {
         uint256 _price
     ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
+        VanityURLInfo storage vanityURLInfo = vanityURLs[tokenId][_aliasName];
+        address domainOwner = IDC(dc).ownerOf(_name);
 
         require(bytes(_aliasName).length <= 1024, "VanityURL: alias too long");
         require(bytes(_url).length <= 1024, "VanityURL: url too long");
-        require(checkURLValidity(_name, _aliasName), "VanityURL: invalid URL");
+        require(bytes(vanityURLInfo.vanityURL).length != 0, "VanityURL: url does not exists");
 
-        emit URLUpdated(msg.sender, _name, _aliasName, vanityURLs[tokenId][_aliasName], _url, _price);
+        emit URLUpdated(
+            msg.sender,
+            _name,
+            _aliasName,
+            vanityURLInfo.vanityURL,
+            _url,
+            vanityURLInfo.price,
+            _price,
+            domainOwner
+        );
 
         // update the URL
-        vanityURLs[tokenId][_aliasName] = _url;
-        vanityURLPrices[tokenId][_aliasName] = _price;
-        vanityURLUpdatedAt[tokenId][_aliasName] = block.timestamp;
-    }
-
-    /// @notice Returns the URL corresponding to the alias name
-    /// @dev If the domain is expired, returns empty string
-    /// @param _name domain name
-    /// @param _aliasName alias name for the URL
-    function getURL(string calldata _name, string calldata _aliasName) external view returns (string memory) {
-        if (IDC(dc).nameExpires(_name) < block.timestamp) {
-            return "";
-        } else {
-            bytes32 tokenId = keccak256(bytes(_name));
-
-            return vanityURLs[tokenId][_aliasName];
-        }
-    }
-
-    /// @notice Returns the price for the vanity URL access
-    /// @dev If the domain is expired, returns 0
-    /// @param _name domain name
-    /// @param _aliasName alias name for the URL
-    function getPrice(string calldata _name, string calldata _aliasName) external view returns (uint256) {
-        if (IDC(dc).nameExpires(_name) < block.timestamp) {
-            return 0;
-        } else {
-            bytes32 tokenId = keccak256(bytes(_name));
-
-            return vanityURLPrices[tokenId][_aliasName];
-        }
+        vanityURLs[tokenId][_aliasName] = VanityURLInfo({vanityURL: _url, price: _price, owner: domainOwner});
     }
 
     /// @notice Returns the validity of the vanity URL
     /// @param _name domain name
     /// @param _aliasName alias name for the URL
-    function checkURLValidity(string memory _name, string memory _aliasName) public view returns (bool) {
+    function existURL(string memory _name, string memory _aliasName) public view returns (bool) {
         bytes32 tokenId = keccak256(bytes(_name));
-        for (uint256 i = 0; i < aliasNames[tokenId].length;) {
-            if (aliasNames[tokenId][i] == _aliasName) {
-                return false;
-            }
+        VanityURLInfo memory vanityURLInfo = vanityURLs[tokenId][_aliasName];
 
-            unchecked {
-                ++i;
-            }
-        }
-        
-        return true;
+        return bytes(vanityURLInfo.vanityURL).length != 0;
     }
 
     /// @notice Withdraw funds
