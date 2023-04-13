@@ -214,6 +214,45 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
         return bytes(vanityURLInfo.vanityURL).length != 0;
     }
 
+    /**
+     * @notice Transfer the vanity url ownership to another domain
+     * @param _senderName domain name to send the vanity urls
+     * @param _receiverName domain name to receive the vanity urls
+     */
+    function trasnferURLOwnership(
+        string memory _senderName,
+        string memory _receiverName
+    ) external whenNotPaused onlyDCOwner(_senderName) whenDomainNotExpired(_senderName) {
+        bytes32 senderTokenId = keccak256(bytes(_senderName));
+        bytes32 receiverTokenId = keccak256(bytes(_receiverName));
+        address receiver = IDC(dc).ownerOf(_receiverName);
+
+        for (uint256 i; i < aliasNames[senderTokenId].length; ) {
+            // add vanity urls and alias names to the receiver
+            string memory aliasName = aliasNames[senderTokenId][i];
+            VanityURLInfo memory senderVanityURLInfo = vanityURLs[senderTokenId][aliasName];
+            VanityURLInfo memory receiverVanityURLInfo = vanityURLs[receiverTokenId][aliasName];
+
+            require(bytes(receiverVanityURLInfo.vanityURL).length == 0, "VanityURL: duplication");
+            aliasNames[receiverTokenId].push(aliasName);
+            vanityURLs[receiverTokenId][aliasName] = VanityURLInfo({
+                vanityURL: senderVanityURLInfo.vanityURL,
+                price: senderVanityURLInfo.price,
+                owner: receiver
+            });
+
+            // remove vanity urls from the sender
+            delete vanityURLs[receiverTokenId][aliasName];
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        // remove alias names from the user
+        delete aliasNames[receiverTokenId];
+    }
+
     /// @notice Withdraw funds
     /// @dev Only owner of the revenue account can withdraw funds
     function withdraw() external {
