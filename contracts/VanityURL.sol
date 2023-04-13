@@ -73,7 +73,7 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _dc, uint256 _urlUpdatePrice, address _revenueAccount) external {
+    function initialize(address _dc, uint256 _urlUpdatePrice, address _revenueAccount) external initializer {
         __Pausable_init();
         __Ownable_init();
 
