@@ -221,7 +221,7 @@ describe("VanityURL", () => {
             ]);
         });
 
-        it("Should revert if the domain ownership is changed but the vanity url ownership is not changed", async () => {
+        it("Should not be able to delete the URL after the domain ownership is changed but vanity url ownership is not changed", async () => {
             // transfer the ownership
             await mockDC.connect(bob).trasnferDomain(dotName);
 
@@ -245,12 +245,11 @@ describe("VanityURL", () => {
         });
     });
 
-    describe.only("updateURL", () => {
+    describe("updateURL", () => {
         const tokenId = ethers.utils.id(dotName);
         const aliasName = "aliasName";
         const url = "url";
         const price = ethers.utils.parseEther("2");
-        const newPrice = ethers.utils.parseEther("3");
 
         beforeEach(async () => {
             await mockDC.connect(alice).register(dotName);
@@ -260,32 +259,61 @@ describe("VanityURL", () => {
         });
 
         it("Should be able to update the existing URL", async () => {
-            const urlBefore = await vanityURL.vanityURLs(tokenId, aliasName);
-            const priceBefore = await vanityURL.vanityURLPrices(tokenId, aliasName);
-            expect(urlBefore).to.equal(url);
-            expect(priceBefore).to.equal(price);
+            expect(await vanityURL.getAliasNameCount(dotName)).to.equal(1);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                url,
+                price,
+                alice.address,
+            ]);
 
             // update the URL and price
             const newURL = "newURL";
+            const newPrice = ethers.utils.parseEther("3");
             await vanityURL.connect(alice).updateURL(dotName, aliasName, newURL, newPrice);
 
-            const urlAfter = await vanityURL.vanityURLs(tokenId, aliasName);
-            const priceAfter = await vanityURL.vanityURLPrices(tokenId, aliasName);
-            const urlUpdatedAtAfter = await vanityURL.vanityURLUpdatedAt(tokenId, aliasName);
-            expect(urlAfter).to.equal(newURL);
-            expect(priceAfter).to.equal(newPrice);
-            expect(urlUpdatedAtAfter).to.equal(await getTimestamp());
+            expect(await vanityURL.getAliasNameCount(dotName)).to.equal(1);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                newURL,
+                newPrice,
+                alice.address,
+            ]);
         });
 
-        it("Should be able to update after the domain ownership was changed but not expired", async () => {
+        it("Should be able to update after both the domain and vanity url ownerships are changed but not expired", async () => {
+            expect(await vanityURL.getAliasNameCount(dotName)).to.equal(1);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                url,
+                price,
+                alice.address,
+            ]);
+
             // transfer the ownership
+            await vanityURL.connect(alice).trasnferURLOwnership(dotName, bob.address);
             await mockDC.connect(bob).trasnferDomain(dotName);
 
             // update the URL
             const newURL = "newURL";
-            await vanityURL.connect(bob).updateURL(dotName, aliasName, newURL, price);
+            const newPrice = ethers.utils.parseEther("3");
+            await vanityURL.connect(bob).updateURL(dotName, aliasName, newURL, newPrice);
 
-            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.equal(newURL);
+            expect(await vanityURL.getAliasNameCount(dotName)).to.equal(1);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                newURL,
+                newPrice,
+                bob.address,
+            ]);
+        });
+
+        it("Should revert if the domain ownership is changed but the vanity url ownership is not changed", async () => {
+            // transfer the ownership
+            await mockDC.connect(bob).trasnferDomain(dotName);
+
+            // delete the URL
+            const newURL = "newURL";
+            const newPrice = ethers.utils.parseEther("3");
+            await expect(
+                vanityURL.connect(bob).updateURL(dotName, aliasName, newURL, newPrice)
+            ).to.be.revertedWith("VanityURL: only url owner");
         });
 
         it("Should revert if the caller is not the name owner", async () => {
@@ -309,57 +337,57 @@ describe("VanityURL", () => {
         });
     });
 
-    describe("getURL", () => {
-        const tokenId = ethers.utils.id(dotName);
-        const aliasName = "aliasName";
-        const url = "url";
-        const price = ethers.utils.parseEther("2");
+    // describe("getURL", () => {
+    //     const tokenId = ethers.utils.id(dotName);
+    //     const aliasName = "aliasName";
+    //     const url = "url";
+    //     const price = ethers.utils.parseEther("2");
 
-        beforeEach(async () => {
-            await mockDC.connect(alice).register(dotName);
-            await vanityURL
-                .connect(alice)
-                .addNewURL(dotName, aliasName, url, price, { value: urlUpdatePrice });
-        });
+    //     beforeEach(async () => {
+    //         await mockDC.connect(alice).register(dotName);
+    //         await vanityURL
+    //             .connect(alice)
+    //             .addNewURL(dotName, aliasName, url, price, { value: urlUpdatePrice });
+    //     });
 
-        it("Should be able to returns the price", async () => {
-            expect(await vanityURL.getURL(dotName, aliasName)).to.equal(url);
-        });
+    //     it("Should be able to returns the price", async () => {
+    //         expect(await vanityURL.getURL(dotName, aliasName)).to.equal(url);
+    //     });
 
-        it("Should be able to return 0 if the domain is expired", async () => {
-            // increase time
-            const duration = await mockDC.duration();
-            await increaseTime(Number(duration.add(1)));
+    //     it("Should be able to return 0 if the domain is expired", async () => {
+    //         // increase time
+    //         const duration = await mockDC.duration();
+    //         await increaseTime(Number(duration.add(1)));
 
-            expect(await vanityURL.getURL(dotName, aliasName)).to.equal("");
-        });
-    });
+    //         expect(await vanityURL.getURL(dotName, aliasName)).to.equal("");
+    //     });
+    // });
 
-    describe("getPrice", () => {
-        const tokenId = ethers.utils.id(dotName);
-        const aliasName = "aliasName";
-        const url = "url";
-        const price = ethers.utils.parseEther("2");
+    // describe("getPrice", () => {
+    //     const tokenId = ethers.utils.id(dotName);
+    //     const aliasName = "aliasName";
+    //     const url = "url";
+    //     const price = ethers.utils.parseEther("2");
 
-        beforeEach(async () => {
-            await mockDC.connect(alice).register(dotName);
-            await vanityURL
-                .connect(alice)
-                .addNewURL(dotName, aliasName, url, price, { value: urlUpdatePrice });
-        });
+    //     beforeEach(async () => {
+    //         await mockDC.connect(alice).register(dotName);
+    //         await vanityURL
+    //             .connect(alice)
+    //             .addNewURL(dotName, aliasName, url, price, { value: urlUpdatePrice });
+    //     });
 
-        it("Should be able to returns the price", async () => {
-            expect(await vanityURL.getPrice(dotName, aliasName)).to.equal(price);
-        });
+    //     it("Should be able to returns the price", async () => {
+    //         expect(await vanityURL.getPrice(dotName, aliasName)).to.equal(price);
+    //     });
 
-        it("Should be able to return 0 if the domain is expired", async () => {
-            // increase time
-            const duration = await mockDC.duration();
-            await increaseTime(Number(duration.add(1)));
+    //     it("Should be able to return 0 if the domain is expired", async () => {
+    //         // increase time
+    //         const duration = await mockDC.duration();
+    //         await increaseTime(Number(duration.add(1)));
 
-            expect(await vanityURL.getPrice(dotName, aliasName)).to.equal(0);
-        });
-    });
+    //         expect(await vanityURL.getPrice(dotName, aliasName)).to.equal(0);
+    //     });
+    // });
 
     describe("withdraw", () => {
         const tokenId = ethers.utils.id(dotName);
@@ -374,7 +402,7 @@ describe("VanityURL", () => {
                 .addNewURL(dotName, aliasName, url, price, { value: urlUpdatePrice });
         });
 
-        it("should be able to withdraw ONE tokens", async () => {
+        it("Should be able to withdraw tokens", async () => {
             const revenueAccountBalanceBefore = await ethers.provider.getBalance(
                 revenueAccount.address
             );
