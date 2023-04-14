@@ -190,7 +190,8 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
 
         require(bytes(_aliasName).length <= 1024, "VanityURL: alias too long");
         require(bytes(_url).length <= 1024, "VanityURL: url too long");
-        require(bytes(vanityURLInfo.vanityURL).length != 0, "VanityURL: url does not exists");
+        require(bytes(vanityURLInfo.vanityURL).length != 0, "VanityURL: url does not exist");
+        require(bytes(_url).length != 0, "VanityURL: empty url");
         require(vanityURLInfo.owner == domainOwner, "VanityURL: only url owner");
 
         emit URLUpdated(
