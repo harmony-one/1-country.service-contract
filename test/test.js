@@ -64,7 +64,11 @@ describe("VanityURL", () => {
 
         it("Should be able to set a new URL", async () => {
             expect(await vanityURL.getAliasNameCount(dotName)).to.equal(0);
-            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal(["", 0, ZERO_ADDRESS]);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                "",
+                0,
+                ZERO_ADDRESS,
+            ]);
 
             // set a new URL
             await vanityURL
@@ -73,7 +77,11 @@ describe("VanityURL", () => {
 
             expect(await vanityURL.getAliasNameCount(dotName)).to.equal(1);
             expect(await vanityURL.aliasNames(tokenId, 0)).to.equal(aliasName);
-            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([url, price, alice.address]);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                url,
+                price,
+                alice.address,
+            ]);
         });
 
         it("Should be able to set a new URL after the domain ownership was changed but not expired", async () => {
@@ -83,11 +91,15 @@ describe("VanityURL", () => {
                 .addNewURL(dotName, aliasName, url, price, { value: urlUpdatePrice });
 
             // transfer the ownership
-            await vanityURL.connect(alice).trasnferURLOwnership(dotName, bob.address)
+            await vanityURL.connect(alice).trasnferURLOwnership(dotName, bob.address);
             await mockDC.connect(bob).trasnferDomain(dotName);
 
             expect(await vanityURL.aliasNames(tokenId, 0)).to.equal(aliasName);
-            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([url, price, bob.address]);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                url,
+                price,
+                bob.address,
+            ]);
 
             // set a new URL
             const newAliasName = "newAliasName";
@@ -100,7 +112,11 @@ describe("VanityURL", () => {
 
             expect(await vanityURL.getAliasNameCount(dotName)).to.equal(2);
             expect(await vanityURL.aliasNames(tokenId, 1)).to.equal(newAliasName);
-            expect(await vanityURL.vanityURLs(tokenId, newAliasName)).to.deep.equal([newURL, newPrice, bob.address]);
+            expect(await vanityURL.vanityURLs(tokenId, newAliasName)).to.deep.equal([
+                newURL,
+                newPrice,
+                bob.address,
+            ]);
         });
 
         it("Should revert if the caller is not the name owner", async () => {
@@ -164,29 +180,45 @@ describe("VanityURL", () => {
         it("Should be able to delete the URL", async () => {
             expect(await vanityURL.getAliasNameCount(dotName)).to.equal(1);
             expect(await vanityURL.aliasNames(tokenId, 0)).to.equal(aliasName);
-            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([url, price, alice.address]);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                url,
+                price,
+                alice.address,
+            ]);
 
             // delete the URL
             await vanityURL.connect(alice).deleteURL(dotName, aliasName);
 
             expect(await vanityURL.getAliasNameCount(dotName)).to.equal(0);
-            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal(["", 0, ZERO_ADDRESS]);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                "",
+                0,
+                ZERO_ADDRESS,
+            ]);
         });
 
         it("Should be able to delete the URL after both the domain and vanity url ownerships are changed but not expired", async () => {
             expect(await vanityURL.getAliasNameCount(dotName)).to.equal(1);
             expect(await vanityURL.aliasNames(tokenId, 0)).to.equal(aliasName);
-            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([url, price, alice.address]);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                url,
+                price,
+                alice.address,
+            ]);
 
             // transfer the ownership
-            await vanityURL.connect(alice).trasnferURLOwnership(dotName, bob.address)
+            await vanityURL.connect(alice).trasnferURLOwnership(dotName, bob.address);
             await mockDC.connect(bob).trasnferDomain(dotName);
 
             // delete the URL
             await vanityURL.connect(bob).deleteURL(dotName, aliasName);
 
             expect(await vanityURL.getAliasNameCount(dotName)).to.equal(0);
-            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal(["", 0, ZERO_ADDRESS]);
+            expect(await vanityURL.vanityURLs(tokenId, aliasName)).to.deep.equal([
+                "",
+                0,
+                ZERO_ADDRESS,
+            ]);
         });
 
         it("Should revert if the domain ownership is changed but the vanity url ownership is not changed", async () => {
@@ -194,7 +226,9 @@ describe("VanityURL", () => {
             await mockDC.connect(bob).trasnferDomain(dotName);
 
             // delete the URL
-            await expect(vanityURL.connect(bob).deleteURL(dotName, aliasName)).to.be.revertedWith("VanityURL: only url owner");
+            await expect(vanityURL.connect(bob).deleteURL(dotName, aliasName)).to.be.revertedWith(
+                "VanityURL: only url owner"
+            );
         });
 
         it("Should revert if the caller is not the name owner", async () => {
