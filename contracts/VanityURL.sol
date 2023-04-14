@@ -125,10 +125,10 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
         require(bytes(_url).length != 0, "VanityURL: empty url");
 
         require(bytes(vanityURLInfo.vanityURL).length == 0, "VanityURL: url already exists");
-        require(msg.value == vanityURLInfo.price, "VanityURL: invalid payment");
+        require(msg.value == urlUpdatePrice, "VanityURL: incorrect payment");
 
         // set a new URL
-        address domainOwner = IDC(dc).ownerOf(_name);
+        address domainOwner = msg.sender;
         aliasNames[tokenId].push(_aliasName);
         vanityURLs[tokenId][_aliasName] = VanityURLInfo({vanityURL: _url, price: _price, owner: domainOwner});
 
@@ -142,8 +142,10 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
     function deleteURL(string calldata _name, string calldata _aliasName) external whenNotPaused onlyDCOwner(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
         VanityURLInfo memory vanityURLInfo = vanityURLs[tokenId][_aliasName];
+        address domainOwner = msg.sender;
 
         require(bytes(vanityURLInfo.vanityURL).length != 0, "VanityURL: url does not exist");
+        require(vanityURLInfo.owner == domainOwner, "VanityURL: only url owner");
 
         emit URLDeleted(
             msg.sender,
@@ -160,6 +162,7 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
             if (keccak256(abi.encodePacked(aliasNames[tokenId][i])) == keccak256(abi.encodePacked(_aliasName))) {
                 aliasNames[tokenId][i] = aliasNames[tokenId][aliasNameLen - 1];
                 aliasNames[tokenId].pop();
+                break;
             }
 
             unchecked {
@@ -183,11 +186,12 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
     ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
         VanityURLInfo storage vanityURLInfo = vanityURLs[tokenId][_aliasName];
-        address domainOwner = IDC(dc).ownerOf(_name);
+        address domainOwner = msg.sender;
 
         require(bytes(_aliasName).length <= 1024, "VanityURL: alias too long");
         require(bytes(_url).length <= 1024, "VanityURL: url too long");
         require(bytes(vanityURLInfo.vanityURL).length != 0, "VanityURL: url does not exists");
+        require(vanityURLInfo.owner == domainOwner, "VanityURL: only url owner");
 
         emit URLUpdated(
             msg.sender,
@@ -214,43 +218,39 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
         return bytes(vanityURLInfo.vanityURL).length != 0;
     }
 
+    /// @notice Returns the alias name count registered in the specific domain
+    /// @param _name domain name
+    function getAliasNameCount(string memory _name) external view returns (uint256) {
+        bytes32 tokenId = keccak256(bytes(_name));
+
+        return aliasNames[tokenId].length;
+    }
+
     /**
      * @notice Transfer the vanity url ownership to another domain
-     * @param _senderName domain name to send the vanity urls
-     * @param _receiverName domain name to receive the vanity urls
+     * @param _name domain name to transfer the vanity url ownership
+     * @param _receiver address to receive the vanity url ownership
      */
     function trasnferURLOwnership(
-        string memory _senderName,
-        string memory _receiverName
-    ) external whenNotPaused onlyDCOwner(_senderName) whenDomainNotExpired(_senderName) {
-        bytes32 senderTokenId = keccak256(bytes(_senderName));
-        bytes32 receiverTokenId = keccak256(bytes(_receiverName));
-        address receiver = IDC(dc).ownerOf(_receiverName);
+        string memory _name,
+        address _receiver
+    ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+        bytes32 tokenId = keccak256(bytes(_name));
+        address sender = msg.sender;
 
-        for (uint256 i; i < aliasNames[senderTokenId].length; ) {
+        for (uint256 i; i < aliasNames[tokenId].length; ) {
             // add vanity urls and alias names to the receiver
-            string memory aliasName = aliasNames[senderTokenId][i];
-            VanityURLInfo memory senderVanityURLInfo = vanityURLs[senderTokenId][aliasName];
-            VanityURLInfo memory receiverVanityURLInfo = vanityURLs[receiverTokenId][aliasName];
+            string memory aliasName = aliasNames[tokenId][i];
+            VanityURLInfo storage vanityURLInfo = vanityURLs[tokenId][aliasName];
 
-            require(bytes(receiverVanityURLInfo.vanityURL).length == 0, "VanityURL: duplication");
-            aliasNames[receiverTokenId].push(aliasName);
-            vanityURLs[receiverTokenId][aliasName] = VanityURLInfo({
-                vanityURL: senderVanityURLInfo.vanityURL,
-                price: senderVanityURLInfo.price,
-                owner: receiver
-            });
-
-            // remove vanity urls from the sender
-            delete vanityURLs[receiverTokenId][aliasName];
+            if (vanityURLInfo.owner == sender) {
+                vanityURLInfo.owner = _receiver;
+            }
 
             unchecked {
                 ++i;
             }
         }
-
-        // remove alias names from the user
-        delete aliasNames[receiverTokenId];
     }
 
     /// @notice Withdraw funds
