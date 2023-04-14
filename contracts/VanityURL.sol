@@ -78,7 +78,6 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
         __Ownable_init();
 
         require(_dc != address(0), "VanityURL: zero address");
-        require(_revenueAccount != address(0), "VanityURL: zero address");
 
         dc = _dc;
         urlUpdatePrice = _urlUpdatePrice;
