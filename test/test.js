@@ -56,7 +56,7 @@ describe("VanityURL", () => {
         });
 
         it("Should revert if the caller is not owner", async () => {
-            await expect(vanityURL.connect(alice).setDCAddress(alice.address)).to.be.reverted;
+            await expect(vanityURL.connect(alice).setURLUpdatePrice(alice.address)).to.be.reverted;
         });
     });
 
@@ -514,7 +514,21 @@ describe("VanityURL", () => {
                 .addNewURL(dotName, aliasName, url, price, { value: urlUpdatePrice });
         });
 
-        it("Should be able to withdraw tokens", async () => {
+        it("Should be able to withdraw tokens by the owner", async () => {
+            const revenueAccountBalanceBefore = await ethers.provider.getBalance(
+                revenueAccount.address
+            );
+
+            // withdraw ONE tokens
+            await vanityURL.withdraw();
+
+            const revenueAccountBalanceAfter = await ethers.provider.getBalance(
+                revenueAccount.address
+            );
+            expect(revenueAccountBalanceAfter).gt(revenueAccountBalanceBefore);
+        });
+
+        it("Should be able to withdraw tokens by revenue account", async () => {
             const revenueAccountBalanceBefore = await ethers.provider.getBalance(
                 revenueAccount.address
             );
@@ -532,6 +546,34 @@ describe("VanityURL", () => {
             await expect(vanityURL.connect(alice).withdraw()).to.be.revertedWith(
                 "VanityURL: must be owner or revenue account"
             );
+        });
+    });
+
+    describe("pause/unpause", () => {
+        it("Pause", async () => {
+            expect(await vanityURL.paused()).to.be.false;
+
+            // Pause the contract
+            await vanityURL.pause();
+
+            // check pause status
+            expect(await vanityURL.paused()).to.be.true;
+        });
+
+        it("Unpause", async () => {
+            // Pause the contract
+            await vanityURL.pause();
+
+            // Unpause the contract
+            await vanityURL.unpause();
+
+            // check pause status
+            expect(await vanityURL.paused()).to.be.false;
+        });
+
+        it("Should revert if the caller is not the owner", async () => {
+            await expect(vanityURL.connect(alice).pause()).to.be.reverted;
+            await expect(vanityURL.connect(alice).unpause()).to.be.reverted;
         });
     });
 });
