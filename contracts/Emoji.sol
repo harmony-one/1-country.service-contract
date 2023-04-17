@@ -71,7 +71,10 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         emojiReactionPrices[_emojiType] = _price;
     }
 
-    function addEmojiReaction(string memory _name, EmojiType _emojiType) external payable whenNotPaused whenDomainNotExpired(_name) {
+    function addEmojiReaction(
+        string memory _name,
+        EmojiType _emojiType
+    ) external payable whenNotPaused whenDomainNotExpired(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
         address dcOwner = IDC(dc).ownerOf(_name);
 
@@ -81,11 +84,14 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         emojiReactions[tokenId].push(emojiInfo);
     }
 
-    function transferEmojiReactions(string memory _name, address _receiver) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+    function transferEmojiReactions(
+        string memory _name,
+        address _receiver
+    ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
         address sender = msg.sender;
 
-        for (uint256 i = 0; i < emojiReactions[tokenId].length;) {
+        for (uint256 i = 0; i < emojiReactions[tokenId].length; ) {
             EmojiInfo storage emojiInfo = emojiReactions[tokenId][i];
 
             if (emojiInfo.owner == sender) {
