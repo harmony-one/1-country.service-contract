@@ -61,14 +61,22 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         revenueAccount = _revenueAccount;
     }
 
-    function setRevenueAccount(address _revenueAccount) public onlyOwner {
-        emit RevenueAccountChanged(revenueAccount, _revenueAccount);
-
-        revenueAccount = _revenueAccount;
+    /// @notice Set the DC contract address
+    /// @param _dc DC contract address
+    function setDCAddress(address _dc) external onlyOwner {
+        dc = _dc;
     }
 
     function setEmojiReactionPrice(EmojiType _emojiType, uint256 _price) external onlyOwner {
         emojiReactionPrices[_emojiType] = _price;
+    }
+
+    /// @notice Set the revenue account
+    /// @param _revenueAccount revenue account address
+    function setRevenueAccount(address _revenueAccount) public onlyOwner {
+        emit RevenueAccountChanged(revenueAccount, _revenueAccount);
+
+        revenueAccount = _revenueAccount;
     }
 
     function addEmojiReaction(
@@ -104,9 +112,21 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         }
     }
 
+    /// @notice Withdraw funds
+    /// @dev Only owner of the revenue account can withdraw funds
     function withdraw() external {
         require(msg.sender == owner() || msg.sender == revenueAccount, "Emoji: must be owner or revenue account");
         (bool success, ) = revenueAccount.call{value: address(this).balance}("");
         require(success, "Emoji: failed to withdraw");
+    }
+
+    /// @notice Pause the contract
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the contract
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }
