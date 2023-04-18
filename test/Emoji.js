@@ -11,6 +11,11 @@ const emojiReactionPrices = [
 
 const ZERO_ADDRESS = ethers.constants.AddressZero;
 
+const increaseTime = async (sec) => {
+    await network.provider.send("evm_increaseTime", [sec]);
+    await network.provider.send("evm_mine");
+};
+
 describe("Emoji", () => {
     let deployer, alice, bob, john, revenueAccount;
     let mockDC, emoji;
@@ -82,6 +87,50 @@ describe("Emoji", () => {
 
         it("Should revert if the caller is not owner", async () => {
             await expect(emoji.connect(alice).setRevenueAccount(alice.address)).to.be.reverted;
+        });
+    });
+
+    describe("addEmojiReaction", () => {
+        const emojiType = 1;
+
+        beforeEach(async () => {
+            await mockDC.connect(alice).register(dotName);
+        });
+
+        it("Should be able add the emoji reaction", async () => {
+            expect(await emoji.getEmojiReactions(dotName)).to.be.empty;
+
+            await emoji
+                .connect(alice)
+                .addEmojiReaction(dotName, emojiType, { value: emojiReactionPrices[emojiType] });
+
+            expect(await emoji.getEmojiReactions(dotName)).to.deep.members([
+                [emojiType, alice.address],
+            ]);
+        });
+
+        it("Should revert if the payment amount is not correct", async () => {
+            await expect(
+                emoji
+                    .connect(alice)
+                    .addEmojiReaction(dotName, emojiType, {
+                        value: emojiReactionPrices[emojiType].sub(1),
+                    })
+            ).to.be.revertedWith("Emoji: incorrect payment");
+        });
+
+        it("Should revert if the domain is expired", async () => {
+            // increase time
+            const duration = await mockDC.duration();
+            await increaseTime(Number(duration.add(1)));
+
+            await expect(
+                emoji
+                    .connect(alice)
+                    .addEmojiReaction(dotName, emojiType, {
+                        value: emojiReactionPrices[emojiType].sub(1),
+                    })
+            ).to.be.revertedWith("Emoji: expired domain");
         });
     });
 
