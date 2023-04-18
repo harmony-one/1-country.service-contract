@@ -111,11 +111,9 @@ describe("Emoji", () => {
 
         it("Should revert if the payment amount is not correct", async () => {
             await expect(
-                emoji
-                    .connect(alice)
-                    .addEmojiReaction(dotName, emojiType, {
-                        value: emojiReactionPrices[emojiType].sub(1),
-                    })
+                emoji.connect(alice).addEmojiReaction(dotName, emojiType, {
+                    value: emojiReactionPrices[emojiType].sub(1),
+                })
             ).to.be.revertedWith("Emoji: incorrect payment");
         });
 
@@ -125,11 +123,9 @@ describe("Emoji", () => {
             await increaseTime(Number(duration.add(1)));
 
             await expect(
-                emoji
-                    .connect(alice)
-                    .addEmojiReaction(dotName, emojiType, {
-                        value: emojiReactionPrices[emojiType].sub(1),
-                    })
+                emoji.connect(alice).addEmojiReaction(dotName, emojiType, {
+                    value: emojiReactionPrices[emojiType].sub(1),
+                })
             ).to.be.revertedWith("Emoji: expired domain");
         });
     });
