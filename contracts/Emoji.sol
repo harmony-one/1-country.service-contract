@@ -36,13 +36,13 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
 
     modifier onlyDCOwner(string memory _name) {
         address dcOwner = IDC(dc).ownerOf(_name);
-        require(msg.sender == dcOwner, "VanityURL: only DC owner");
+        require(msg.sender == dcOwner, "Emoji: only DC owner");
         _;
     }
 
     modifier whenDomainNotExpired(string memory _name) {
         uint256 domainExpireAt = IDC(dc).nameExpires(_name);
-        require(block.timestamp < domainExpireAt, "VanityURL: expired domain");
+        require(block.timestamp < domainExpireAt, "Emoji: expired domain");
         _;
     }
 
@@ -86,7 +86,7 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         bytes32 tokenId = keccak256(bytes(_name));
         address dcOwner = IDC(dc).ownerOf(_name);
 
-        require(msg.value == emojiReactionPrices[_emojiType], "Emoji: invalid payment");
+        require(msg.value == emojiReactionPrices[_emojiType], "Emoji: incorrect payment");
 
         EmojiInfo memory emojiInfo = EmojiInfo({emojiType: _emojiType, owner: dcOwner});
         emojiReactions[tokenId].push(emojiInfo);
@@ -110,6 +110,12 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
                 ++i;
             }
         }
+    }
+
+    function getEmojiReactions(string memory _name) external view returns (EmojiInfo[] memory) {
+        bytes32 tokenId = keccak256(bytes(_name));
+
+        return emojiReactions[tokenId];
     }
 
     /// @notice Withdraw funds
