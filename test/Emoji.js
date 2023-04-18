@@ -50,16 +50,24 @@ describe("Emoji", () => {
         it("Should be able set the emoji reaction price", async () => {
             const emojiType = 1;
 
-            expect(await emoji.emojiReactionPrices(emojiType)).to.equal(emojiReactionPrices[emojiType]);
+            expect(await emoji.emojiReactionPrices(emojiType)).to.equal(
+                emojiReactionPrices[emojiType]
+            );
 
             await emoji.setEmojiReactionPrice(emojiType, emojiReactionPrices[emojiType].add(1));
 
-            expect(await emoji.emojiReactionPrices(emojiType)).to.deep.equal(emojiReactionPrices[emojiType].add(1));
+            expect(await emoji.emojiReactionPrices(emojiType)).to.deep.equal(
+                emojiReactionPrices[emojiType].add(1)
+            );
         });
 
         it("Should revert if the caller is not owner", async () => {
             const emojiType = 1;
-            await expect(emoji.connect(alice).setEmojiReactionPrice(emojiType, emojiReactionPrices[emojiType])).to.be.reverted;
+            await expect(
+                emoji
+                    .connect(alice)
+                    .setEmojiReactionPrice(emojiType, emojiReactionPrices[emojiType])
+            ).to.be.reverted;
         });
     });
 
