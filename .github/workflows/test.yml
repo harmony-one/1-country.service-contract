@@ -26,7 +26,10 @@ jobs:
             artifacts-
       - name: Create env file
         run: |
-          echo "${{ secrets.ENV_FILE }}" > .env 
+          touch .env
+          echo MAINNET_URL="https://api.harmony.one"
+          echo TESTNET_URL="https://api.s0.b.hmny.io"
+          echo S1_URL="https://s1.api.harmony.one"
       - name: Hardhat compile
         run: npx hardhat compile
         if: steps.hardhat-cache.outputs.cache-hit != 'true'
