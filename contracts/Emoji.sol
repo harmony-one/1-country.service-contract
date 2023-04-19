@@ -25,6 +25,9 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
     /// @dev DC TokenId -> EmojiInfo list
     mapping(bytes32 => EmojiInfo[]) public emojiReactions;
 
+    /// @dev DC TokenId -> Owner -> EmojiType -> Emoji reaction counter
+    mapping(bytes32 => mapping(address => mapping(EmojiType => uint256))) public emojiReactionCounters;
+
     /// @dev Emoji Type -> Price
     mapping(EmojiType => uint256) public emojiReactionPrices;
 
@@ -67,6 +70,9 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         dc = _dc;
     }
 
+    /// @notice Set the price of each emoji reaction
+    /// @param _emojiType emoji type
+    /// @param _price price for the emoji reaction addition
     function setEmojiReactionPrice(EmojiType _emojiType, uint256 _price) external onlyOwner {
         emojiReactionPrices[_emojiType] = _price;
     }
@@ -79,6 +85,9 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         revenueAccount = _revenueAccount;
     }
 
+    /// @notice Add the emoji reaction
+    /// @param _name domain name to add the emoji reaction
+    /// @param _emojiType emoji type to add
     function addEmojiReaction(
         string memory _name,
         EmojiType _emojiType
@@ -90,8 +99,12 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
 
         EmojiInfo memory emojiInfo = EmojiInfo({emojiType: _emojiType, owner: dcOwner});
         emojiReactions[tokenId].push(emojiInfo);
+        ++emojiReactionCounters[tokenId][dcOwner][_emojiType];
     }
 
+    /// @notice Transfer the emoji reactions to another address
+    /// @param _name domain name to trasnfer the emoji reactions
+    /// @param _receiver address to receive the emoji reactions
     function transferEmojiReactions(
         string memory _name,
         address _receiver
@@ -99,12 +112,29 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         bytes32 tokenId = keccak256(bytes(_name));
         address sender = msg.sender;
 
+        // transfer the emoji reactions
+        uint256 emojiTypeCount = uint256(type(EmojiType).max);
+        uint256[] memory countersToTrasnfer = new uint256[](emojiTypeCount);
         for (uint256 i = 0; i < emojiReactions[tokenId].length; ) {
             EmojiInfo storage emojiInfo = emojiReactions[tokenId][i];
 
             if (emojiInfo.owner == sender) {
                 emojiInfo.owner = _receiver;
+                ++countersToTrasnfer[uint256(emojiInfo.emojiType)];
             }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        // update the emoji reaction counters
+        for (uint256 i = 0; i < emojiTypeCount; ) {
+            uint256 currentEmojiType = i;
+            emojiReactionCounters[tokenId][sender][EmojiType(currentEmojiType)] -= countersToTrasnfer[currentEmojiType];
+            emojiReactionCounters[tokenId][_receiver][EmojiType(currentEmojiType)] += countersToTrasnfer[
+                currentEmojiType
+            ];
 
             unchecked {
                 ++i;
@@ -112,6 +142,8 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         }
     }
 
+    /// @notice Returns all the emoji reactions added to the specific domain
+    /// @param _name domain name to check
     function getEmojiReactions(string memory _name) external view returns (EmojiInfo[] memory) {
         bytes32 tokenId = keccak256(bytes(_name));
 
