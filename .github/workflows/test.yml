@@ -26,8 +26,8 @@ jobs:
             artifacts-
       - name: Hardhat compile
         run: |
-        echo "${{ secret.EVN_FILE }}" > .env
-        npx hardhat compile
+          echo "${{ secret.EVN_FILE }}" > .env
+          npx hardhat compile
         if: steps.hardhat-cache.outputs.cache-hit != 'true'
       - name: Run test
         run: yarn run test
