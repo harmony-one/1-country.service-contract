@@ -30,6 +30,7 @@ jobs:
           echo MAINNET_URL="https://api.harmony.one"
           echo TESTNET_URL="https://api.s0.b.hmny.io"
           echo S1_URL="https://s1.api.harmony.one"
+          cat .env
       - name: Hardhat compile
         run: npx hardhat compile
         if: steps.hardhat-cache.outputs.cache-hit != 'true'
