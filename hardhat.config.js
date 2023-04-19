@@ -39,7 +39,7 @@ module.exports = {
             saveDeployments: false
         },
         testnet: {
-            url: process.env.TESTNET_URL || "",
+            url: process.env.TESTNET_URL,
             accounts: { mnemonic: process.env.TEST_MNEMONIC },
             chainId: 1666700000,
             live: true,
@@ -47,7 +47,7 @@ module.exports = {
             saveDeployments: true
         },
         mainnet: {
-            url: process.env.MAINNET_URL || "",
+            url: process.env.MAINNET_URL,
             accounts: { mnemonic: process.env.MNEMONIC },
             chainId: 1666600000,
             live: true,
@@ -56,7 +56,7 @@ module.exports = {
             gas: 10e+6
         },
         s1: {
-            url: process.env.S1_URL || "",
+            url: process.env.S1_URL,
             accounts: { mnemonic: process.env.MNEMONIC },
             chainId: 1666600001,
             live: true,
