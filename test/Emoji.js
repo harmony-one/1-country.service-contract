@@ -104,8 +104,9 @@ describe("Emoji", () => {
                 .connect(alice)
                 .addEmojiReaction(dotName, emojiType, { value: emojiReactionPrices[emojiType] });
 
-            expect(await emoji.getEmojiReactions(dotName)).to.deep.members([
-                [emojiType, alice.address],
+            expect((await emoji.getEmojiReactions(dotName))[0]).to.deep.equal([
+                emojiType,
+                alice.address,
             ]);
         });
 
@@ -130,8 +131,88 @@ describe("Emoji", () => {
         });
     });
 
+    describe("transferEmojiReactions", () => {
+        const emojiType = 1;
+        const newEmojiType = 0;
+
+        beforeEach(async () => {
+            await mockDC.connect(alice).register(dotName);
+        });
+
+        it("Should be able to transfer the emoji reactions", async () => {
+            // add the emoji reactions
+            await emoji
+                .connect(alice)
+                .addEmojiReaction(dotName, emojiType, { value: emojiReactionPrices[emojiType] });
+            await emoji.connect(alice).addEmojiReaction(dotName, newEmojiType, {
+                value: emojiReactionPrices[newEmojiType],
+            });
+
+            // trasnfer the emoji reactions
+            await emoji.connect(alice).transferEmojiReactions(dotName, bob.address);
+
+            expect((await emoji.getEmojiReactions(dotName))[0]).to.deep.equal([
+                emojiType,
+                bob.address,
+            ]);
+            expect((await emoji.getEmojiReactions(dotName))[1]).to.deep.equal([
+                newEmojiType,
+                bob.address,
+            ]);
+
+            // add a new emoji reaction
+            await emoji
+                .connect(alice)
+                .addEmojiReaction(dotName, emojiType, { value: emojiReactionPrices[emojiType] });
+
+            expect((await emoji.getEmojiReactions(dotName))[0]).to.deep.equal([
+                emojiType,
+                bob.address,
+            ]);
+            expect((await emoji.getEmojiReactions(dotName))[1]).to.deep.equal([
+                newEmojiType,
+                bob.address,
+            ]);
+            expect((await emoji.getEmojiReactions(dotName))[2]).to.deep.equal([
+                emojiType,
+                alice.address,
+            ]);
+
+            // trasnfer the emoji reactions
+            await emoji.connect(alice).transferEmojiReactions(dotName, john.address);
+
+            expect((await emoji.getEmojiReactions(dotName))[0]).to.deep.equal([
+                emojiType,
+                bob.address,
+            ]);
+            expect((await emoji.getEmojiReactions(dotName))[1]).to.deep.equal([
+                newEmojiType,
+                bob.address,
+            ]);
+            expect((await emoji.getEmojiReactions(dotName))[2]).to.deep.equal([
+                emojiType,
+                john.address,
+            ]);
+        });
+
+        it("Should revert if the caller is not the name owner", async () => {
+            await expect(emoji.transferEmojiReactions(dotName, bob.address)).to.be.revertedWith(
+                "Emoji: only DC owner"
+            );
+        });
+
+        it("Should revert if the domain is expired", async () => {
+            // increase time
+            const duration = await mockDC.duration();
+            await increaseTime(Number(duration.add(1)));
+
+            await expect(
+                emoji.connect(alice).transferEmojiReactions(dotName, bob.address)
+            ).to.be.revertedWith("Emoji: expired domain");
+        });
+    });
+
     describe("withdraw", () => {
-        const tokenId = ethers.utils.id(dotName);
         const emojiType = 1;
 
         beforeEach(async () => {
