@@ -6,6 +6,7 @@ jobs:
   test:
     name: "Run Test"
     runs-on: ubuntu-latest
+    environment: development
 
     steps:
       - name: Check out repository
