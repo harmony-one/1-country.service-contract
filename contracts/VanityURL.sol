@@ -227,7 +227,7 @@ contract VanityURL is OwnableUpgradeable, PausableUpgradeable {
     }
 
     /**
-     * @notice Transfer the vanity url ownership to another domain
+     * @notice Transfer the vanity url ownership to another address
      * @param _name domain name to transfer the vanity url ownership
      * @param _receiver address to receive the vanity url ownership
      */
