@@ -91,6 +91,7 @@ describe("Emoji", () => {
     });
 
     describe("addEmojiReaction", () => {
+        const tokenId = ethers.utils.id(dotName);
         const emojiType = 1;
 
         beforeEach(async () => {
@@ -108,6 +109,9 @@ describe("Emoji", () => {
                 emojiType,
                 alice.address,
             ]);
+            expect(await emoji.emojiReactionCounters(tokenId, alice.address, emojiType)).to.equal(
+                1
+            );
         });
 
         it("Should revert if the payment amount is not correct", async () => {
@@ -132,6 +136,7 @@ describe("Emoji", () => {
     });
 
     describe("transferEmojiReactions", () => {
+        const tokenId = ethers.utils.id(dotName);
         const emojiType = 1;
         const newEmojiType = 0;
 
@@ -148,6 +153,13 @@ describe("Emoji", () => {
                 value: emojiReactionPrices[newEmojiType],
             });
 
+            expect(await emoji.emojiReactionCounters(tokenId, alice.address, emojiType)).to.equal(
+                1
+            );
+            expect(
+                await emoji.emojiReactionCounters(tokenId, alice.address, newEmojiType)
+            ).to.equal(1);
+
             // trasnfer the emoji reactions
             await emoji.connect(alice).transferEmojiReactions(dotName, bob.address);
 
@@ -159,6 +171,16 @@ describe("Emoji", () => {
                 newEmojiType,
                 bob.address,
             ]);
+            expect(await emoji.emojiReactionCounters(tokenId, alice.address, emojiType)).to.equal(
+                0
+            );
+            expect(
+                await emoji.emojiReactionCounters(tokenId, alice.address, newEmojiType)
+            ).to.equal(0);
+            expect(await emoji.emojiReactionCounters(tokenId, bob.address, emojiType)).to.equal(1);
+            expect(await emoji.emojiReactionCounters(tokenId, bob.address, newEmojiType)).to.equal(
+                1
+            );
 
             // add a new emoji reaction
             await emoji
@@ -177,6 +199,16 @@ describe("Emoji", () => {
                 emojiType,
                 alice.address,
             ]);
+            expect(await emoji.emojiReactionCounters(tokenId, alice.address, emojiType)).to.equal(
+                1
+            );
+            expect(
+                await emoji.emojiReactionCounters(tokenId, alice.address, newEmojiType)
+            ).to.equal(0);
+            expect(await emoji.emojiReactionCounters(tokenId, bob.address, emojiType)).to.equal(1);
+            expect(await emoji.emojiReactionCounters(tokenId, bob.address, newEmojiType)).to.equal(
+                1
+            );
 
             // trasnfer the emoji reactions
             await emoji.connect(alice).transferEmojiReactions(dotName, john.address);
@@ -193,6 +225,20 @@ describe("Emoji", () => {
                 emojiType,
                 john.address,
             ]);
+            expect(await emoji.emojiReactionCounters(tokenId, alice.address, emojiType)).to.equal(
+                0
+            );
+            expect(
+                await emoji.emojiReactionCounters(tokenId, alice.address, newEmojiType)
+            ).to.equal(0);
+            expect(await emoji.emojiReactionCounters(tokenId, bob.address, emojiType)).to.equal(1);
+            expect(await emoji.emojiReactionCounters(tokenId, bob.address, newEmojiType)).to.equal(
+                1
+            );
+            expect(await emoji.emojiReactionCounters(tokenId, john.address, emojiType)).to.equal(1);
+            expect(await emoji.emojiReactionCounters(tokenId, john.address, newEmojiType)).to.equal(
+                0
+            );
         });
 
         it("Should revert if the caller is not the name owner", async () => {
