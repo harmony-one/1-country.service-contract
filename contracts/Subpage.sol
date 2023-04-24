@@ -22,20 +22,8 @@ contract Subpage is OwnableUpgradeable, PausableUpgradeable {
     /// @dev Revenue account
     address public revenueAccount;
 
-    event NewSubpageAdded(
-        address by,
-        string indexed name,
-        string url,
-        string indexed nameSpace,
-        address indexed owner
-    );
-    event SubpageDeleted(
-        address by,
-        string indexed name,
-        string url,
-        string indexed nameSpace,
-        address indexed owner
-    );
+    event NewSubpageAdded(address by, string indexed name, string url, string indexed nameSpace, address indexed owner);
+    event SubpageDeleted(address by, string indexed name, string url, string indexed nameSpace, address indexed owner);
     event SubpageUpdated(
         address by,
         string indexed name,
