@@ -173,21 +173,11 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         posts[tokenId][_postId].url = _newURL;
     }
 
-    /// @notice Returns the post count registered in the specific domain
-    /// @param _name domain name
-    function getPostCount(string calldata _name) external view returns (uint256) {
-        bytes32 tokenId = keccak256(bytes(_name));
-
-        return posts[tokenId].length;
-    }
-
-    /**
-     * @notice Transfer the post to another address
-     * @param _name domain name to transfer posts
-     * @param _receiver address to receive the posts
-     * @param _isAllNameSpace indicate whether posts in all name spaces should be transferred or not
-     * @param _nameSpace name space of the posts to trasnfer, available only if _isAllNameSpace = false
-     */
+    /// @notice Transfer the post to another address
+    /// @param _name domain name to transfer posts
+    /// @param _receiver address to receive the posts
+    /// @param _isAllNameSpace indicate whether posts in all name spaces should be transferred or not
+    /// @param _nameSpace name space of the posts to trasnfer, available only if _isAllNameSpace = false
     function trasnferPostOwnership(
         string calldata _name,
         address _receiver,
@@ -214,6 +204,22 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
                 ++i;
             }
         }
+    }
+
+    /// @notice Returns all the posts added to the specific domain
+    /// @param _name domain name
+    function getPosts(string memory _name) external view returns (PostInfo[] memory) {
+        bytes32 tokenId = keccak256(bytes(_name));
+
+        return posts[tokenId];
+    }
+
+    /// @notice Returns the post count registered in the specific domain
+    /// @param _name domain name
+    function getPostCount(string calldata _name) external view returns (uint256) {
+        bytes32 tokenId = keccak256(bytes(_name));
+
+        return posts[tokenId].length;
     }
 
     /// @notice Withdraw funds
