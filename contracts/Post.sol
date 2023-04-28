@@ -20,6 +20,9 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @dev DC TokenId -> PostInfo list
     mapping(bytes32 => PostInfo[]) public posts;
 
+    /// @dev DC TokenId -> PostId -> Bool
+    mapping(bytes32 => mapping(uint256 => bool)) public isPostDeleted;
+
     /// @dev Fee withdrawal address
     address public revenueAccount;
 
@@ -127,20 +130,15 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         bytes32 tokenId = keccak256(bytes(_name));
         address domainOwner = msg.sender;
 
-        uint256 postLen = posts[tokenId].length;
         for (uint256 i = 0; i < _postIds.length; ) {
             uint256 postId = _postIds[i];
+            PostInfo memory post = posts[tokenId][postId];
 
-            PostInfo memory postInfo = posts[tokenId][postId];
+            require(post.owner == domainOwner, "Post: only post owner");
 
-            require(postId < postLen, "Post: invalid post Id");
-            require(postInfo.owner == domainOwner, "Post: only post owner");
+            isPostDeleted[tokenId][postId] = true;
 
-            posts[tokenId][postId] = posts[tokenId][postLen - 1];
-            posts[tokenId].pop();
-            --postLen;
-
-            emit PostDeleted(msg.sender, _name, postInfo);
+            emit PostDeleted(msg.sender, _name, post);
 
             unchecked {
                 ++i;
@@ -166,6 +164,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         require(bytes(_newURL).length != 0, "Post: empty url");
         require(postInfo.owner == domainOwner, "Post: only post owner");
         require(_postId < posts[tokenId].length, "Post: invalid post Id");
+        require(!isPostDeleted[tokenId][_postId], "Post: not exist");
 
         emit PostUpdated(msg.sender, _name, _postId, postInfo.url, _newURL, postInfo.nameSpace, domainOwner);
 
@@ -187,16 +186,18 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         bytes32 tokenId = keccak256(bytes(_name));
         address sender = msg.sender;
 
-        for (uint256 i; i < posts[tokenId].length; ) {
-            // transfer the post ownership
-            PostInfo memory postInfo = posts[tokenId][i];
+        for (uint256 i = 0; i < posts[tokenId].length; ) {
+            if (!isPostDeleted[tokenId][i]) {
+                // transfer the post ownership
+                PostInfo memory postInfo = posts[tokenId][i];
 
-            if (postInfo.owner == sender) {
-                if (
-                    _isAllNameSpace ||
-                    keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace))
-                ) {
-                    posts[tokenId][i].owner = _receiver;
+                if (postInfo.owner == sender) {
+                    if (
+                        _isAllNameSpace ||
+                        keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace))
+                    ) {
+                        posts[tokenId][i].owner = _receiver;
+                    }
                 }
             }
 
@@ -206,20 +207,41 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         }
     }
 
-    /// @notice Returns all the posts added to the specific domain
+    /// @notice Returns all the valid posts registered in the specific domain
     /// @param _name domain name
-    function getPosts(string memory _name) external view returns (PostInfo[] memory) {
+    function getPosts(string calldata _name) external view returns (PostInfo[] memory) {
         bytes32 tokenId = keccak256(bytes(_name));
+        uint256 postCount = getPostCount(_name);
 
-        return posts[tokenId];
+        PostInfo[] memory postList = new PostInfo[](postCount);
+        uint256 postIndex = 0;
+        for (uint256 i = 0; i < posts[tokenId].length; ) {
+            if (!isPostDeleted[tokenId][i]) {
+                postList[postIndex++] = posts[tokenId][i];
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return postList;
     }
 
-    /// @notice Returns the post count registered in the specific domain
+    /// @notice Returns the number of valid posts registered in the specific domain
     /// @param _name domain name
-    function getPostCount(string calldata _name) external view returns (uint256) {
+    function getPostCount(string calldata _name) public view returns (uint256 postCount) {
         bytes32 tokenId = keccak256(bytes(_name));
 
-        return posts[tokenId].length;
+        for (uint256 i = 0; i < posts[tokenId].length; ) {
+            if (!isPostDeleted[tokenId][i]) {
+                ++postCount;
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /// @notice Withdraw funds
