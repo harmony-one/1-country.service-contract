@@ -271,6 +271,90 @@ describe("Post", () => {
         });
     });
 
+    describe("deletePost", () => {
+        const urls = ["url1", "url2", "url3"];
+        const nameSpace = "nameSpace";
+
+        beforeEach(async () => {
+            await mockDC.connect(alice).register(dotName);
+            await post.connect(alice).addNewPost(dotName, urls, nameSpace);
+        });
+
+        it("Should be able to delete the posts", async () => {
+            expect(await post.getPostCount(dotName)).to.equal(urls.length);
+
+            // delete the posts
+            await post.connect(alice).deletePost(dotName, [0, 2]);
+
+            expect(await post.getPostCount(dotName)).to.equal(urls.length - 2);
+            expect((await post.getPosts(dotName))[0]).to.deep.equal([
+                1,
+                urls[1],
+                nameSpace,
+                alice.address,
+            ]);
+        });
+
+        it("Should be able to delete the posts after both the domain and post ownerships are changed but not expired", async () => {
+            expect(await post.getPostCount(dotName)).to.equal(urls.length);
+
+            // transfer the ownership
+            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await mockDC.connect(bob).trasnferDomain(dotName);
+
+            // delete the URL
+            await post.connect(bob).deletePost(dotName, [1, 2]);
+
+            expect(await post.getPostCount(dotName)).to.equal(urls.length - 2);
+            expect((await post.getPosts(dotName))[0]).to.deep.equal([
+                0,
+                urls[0],
+                nameSpace,
+                bob.address,
+            ]);
+        });
+
+        it("Should be able to delete the owner's posts", async () => {
+            expect(await post.getPostCount(dotName)).to.equal(urls.length);
+
+            // transfer the ownership
+            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+
+            // set new posts
+            const newURLs = ["newURL1", "newURL2", "newURL3"];
+            const newNameSpace = "newNameSpace";
+
+            await post.connect(alice).addNewPost(dotName, newURLs, newNameSpace);
+
+            // delete the URL
+            await post.connect(alice).deletePost(dotName, [3, 5]);
+
+            expect(await post.getPostCount(dotName)).to.equal(urls.length + newURLs.length - 2);
+            expect((await post.getPosts(dotName))[3]).to.deep.equal([
+                4,
+                newURLs[1],
+                newNameSpace,
+                alice.address,
+            ]);
+        });
+
+        it("Should not be able to delete the posts after the domain ownership is changed but the post ownership is not changed", async () => {
+            // transfer the ownership
+            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+
+            // delete the URL
+            await expect(post.connect(alice).deletePost(dotName, [1, 2])).to.be.revertedWith(
+                "Post: only post owner"
+            );
+        });
+
+        it("Should revert if the caller is not the name owner", async () => {
+            await expect(post.deletePost(dotName, [1, 2])).to.be.revertedWith(
+                "Post: only DC owner"
+            );
+        });
+    });
+
     describe("pause/unpause", () => {
         it("Pause", async () => {
             expect(await post.paused()).to.be.false;
