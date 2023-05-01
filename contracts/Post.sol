@@ -157,13 +157,15 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         string calldata _newURL
     ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
+
+        require(_postId < posts[tokenId].length, "Post: invalid post Id");
+
         PostInfo memory postInfo = posts[tokenId][_postId];
         address domainOwner = msg.sender;
 
         require(bytes(_newURL).length <= 1024, "Post: url too long");
         require(bytes(_newURL).length != 0, "Post: empty url");
         require(postInfo.owner == domainOwner, "Post: only post owner");
-        require(_postId < posts[tokenId].length, "Post: invalid post Id");
         require(!isPostDeleted[tokenId][_postId], "Post: not exist");
 
         emit PostUpdated(msg.sender, _name, _postId, postInfo.url, _newURL, postInfo.nameSpace, domainOwner);
