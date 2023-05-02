@@ -269,6 +269,12 @@ describe("Post", () => {
                 post.connect(alice).addNewPost(dotName, newURLs, newNameSpace)
             ).to.be.revertedWith("Post: expired domain");
         });
+
+        it("Should revert if the caller is not the name owner", async () => {
+            await expect(
+                post.connect(alice).addNewPost(dotName, [""], nameSpace)
+            ).to.be.revertedWith("Post: empty url");
+        });
     });
 
     describe("deletePost", () => {
@@ -389,7 +395,7 @@ describe("Post", () => {
             const postId = 1;
             const newURL = "newURL";
 
-            await post.connect(alice).updatePost(dotName, 1, newURL);
+            await post.connect(alice).updatePost(dotName, postId, newURL);
 
             expect(await post.getPostCount(dotName)).to.equal(urls.length);
             expect((await post.getPosts(dotName))[0]).to.deep.equal([
@@ -423,7 +429,7 @@ describe("Post", () => {
             const postId = 1;
             const newURL = "newURL";
 
-            await post.connect(bob).updatePost(dotName, 1, newURL);
+            await post.connect(bob).updatePost(dotName, postId, newURL);
 
             expect(await post.getPostCount(dotName)).to.equal(urls.length);
             expect((await post.getPosts(dotName))[0]).to.deep.equal([
@@ -454,9 +460,9 @@ describe("Post", () => {
             const postId = 1;
             const newURL = "newURL";
 
-            await expect(post.connect(alice).updatePost(dotName, 1, newURL)).to.be.revertedWith(
-                "Post: only post owner"
-            );
+            await expect(
+                post.connect(alice).updatePost(dotName, postId, newURL)
+            ).to.be.revertedWith("Post: only post owner");
         });
 
         it("Should revert if the caller is not the name owner", async () => {
@@ -464,7 +470,7 @@ describe("Post", () => {
             const postId = 1;
             const newURL = "newURL";
 
-            await expect(post.updatePost(dotName, 1, newURL)).to.be.revertedWith(
+            await expect(post.updatePost(dotName, postId, newURL)).to.be.revertedWith(
                 "Post: only DC owner"
             );
         });
@@ -478,9 +484,19 @@ describe("Post", () => {
             const postId = 1;
             const newURL = "newURL";
 
-            await expect(post.connect(alice).updatePost(dotName, 1, newURL)).to.be.revertedWith(
-                "Post: expired domain"
-            );
+            await expect(
+                post.connect(alice).updatePost(dotName, postId, newURL)
+            ).to.be.revertedWith("Post: expired domain");
+        });
+
+        it("Should revert if the postId is invalid", async () => {
+            // update the post
+            const postId = 10;
+            const newURL = "";
+
+            await expect(
+                post.connect(alice).updatePost(dotName, postId, newURL)
+            ).to.be.revertedWith("Post: invalid post Id");
         });
 
         it("Should revert if the post does not exist", async () => {
@@ -491,9 +507,9 @@ describe("Post", () => {
             const postId = 1;
             const newURL = "newURL";
 
-            await expect(post.connect(alice).updatePost(dotName, 1, newURL)).to.be.revertedWith(
-                "Post: not exist"
-            );
+            await expect(
+                post.connect(alice).updatePost(dotName, postId, newURL)
+            ).to.be.revertedWith("Post: not exist");
         });
 
         it("Should revert if the url is empty", async () => {
@@ -501,9 +517,94 @@ describe("Post", () => {
             const postId = 1;
             const newURL = "";
 
-            await expect(post.connect(alice).updatePost(dotName, 1, newURL)).to.be.revertedWith(
-                "Post: empty url"
-            );
+            await expect(
+                post.connect(alice).updatePost(dotName, postId, newURL)
+            ).to.be.revertedWith("Post: empty url");
+        });
+    });
+
+    describe("trasnferPostOwnership", () => {
+        const urls = ["url1", "url2", "url3"];
+        const nameSpace = "nameSpace";
+
+        beforeEach(async () => {
+            await mockDC.connect(alice).register(dotName);
+            await post.connect(alice).addNewPost(dotName, urls, nameSpace);
+        });
+
+        it("Should be able to transfer the post owenrship", async () => {
+            expect(await post.getPostCount(dotName)).to.equal(urls.length);
+            expect((await post.getPosts(dotName))[0]).to.deep.equal([
+                0,
+                urls[0],
+                nameSpace,
+                alice.address,
+            ]);
+            expect((await post.getPosts(dotName))[1]).to.deep.equal([
+                1,
+                urls[1],
+                nameSpace,
+                alice.address,
+            ]);
+            expect((await post.getPosts(dotName))[2]).to.deep.equal([
+                2,
+                urls[2],
+                nameSpace,
+                alice.address,
+            ]);
+
+            // delete the post
+            await post.connect(alice).deletePost(dotName, [1]);
+
+            // transfer the ownership
+            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+
+            expect(await post.getPostCount(dotName)).to.equal(urls.length - 1);
+            expect((await post.getPosts(dotName))[0]).to.deep.equal([
+                0,
+                urls[0],
+                nameSpace,
+                bob.address,
+            ]);
+            expect((await post.getPosts(dotName))[1]).to.deep.equal([
+                2,
+                urls[2],
+                nameSpace,
+                bob.address,
+            ]);
+
+            // transfer the ownership again - nothing happens
+            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+
+            expect(await post.getPostCount(dotName)).to.equal(urls.length - 1);
+            expect((await post.getPosts(dotName))[0]).to.deep.equal([
+                0,
+                urls[0],
+                nameSpace,
+                bob.address,
+            ]);
+            expect((await post.getPosts(dotName))[1]).to.deep.equal([
+                2,
+                urls[2],
+                nameSpace,
+                bob.address,
+            ]);
+        });
+
+        it("Should revert if the domain is expired", async () => {
+            // increase time
+            const duration = await mockDC.duration();
+            await increaseTime(Number(duration.add(1)));
+
+            // transfer the ownership
+            await expect(
+                post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "")
+            ).to.be.revertedWith("Post: expired domain");
+        });
+
+        it("Should revert if the caller is not the domain owner", async () => {
+            // transfer the ownership
+            await expect(post.trasnferPostOwnership(dotName, bob.address, true, "")).to.be.reverted;
         });
     });
 
