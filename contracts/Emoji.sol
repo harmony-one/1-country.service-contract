@@ -100,6 +100,8 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
         EmojiInfo memory emojiInfo = EmojiInfo({emojiType: _emojiType, owner: dcOwner});
         emojiReactions[tokenId].push(emojiInfo);
         ++emojiReactionCounters[tokenId][dcOwner][_emojiType];
+
+        emit EmojiReactionAdded(msg.sender, _name, dcOwner, _emojiType);
     }
 
     /// @notice Transfer the emoji reactions to another address
