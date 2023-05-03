@@ -217,7 +217,11 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @param _name domain name
     /// @param _nameSpace namespace
     /// @param _postId id of the post to pin
-    function pinPost(string calldata _name, string calldata _nameSpace, uint256 _postId) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+    function pinPost(
+        string calldata _name,
+        string calldata _nameSpace,
+        uint256 _postId
+    ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
 
         require(bytes(_nameSpace).length == 0, "Post: only root page is allowed");
@@ -230,14 +234,17 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         }
     }
 
-    /// @notice Unpin the post 
+    /// @notice Unpin the post
     /// @param _name domain name
     /// @param _nameSpace namespace
-    function unpinPost(string calldata _name, string calldata _nameSpace) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+    function unpinPost(
+        string calldata _name,
+        string calldata _nameSpace
+    ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
 
         require(pinnedPostId[tokenId][_nameSpace] != 0, "Post: pinned post not exist");
-        
+
         delete pinnedPostId[tokenId][_nameSpace];
     }
 
