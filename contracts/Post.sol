@@ -26,6 +26,9 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @dev Fee withdrawal address
     address public revenueAccount;
 
+    /// @dev DC TokenId -> NameSpace -> PostId pinned
+    mapping(bytes32 => mapping(string => uint256)) public pinnedPostId;
+
     event NewPostAdded(address indexed by, string indexed name, PostInfo post);
     event PostDeleted(address indexed by, string indexed name, PostInfo post);
     event PostUpdated(
@@ -94,7 +97,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
 
         require(bytes(_nameSpace).length <= 1024, "Post: alias too long");
 
-        uint256 nextPostId = posts[tokenId].length;
+        uint256 nextPostId = posts[tokenId].length + 1;
         for (uint256 i = 0; i < _urls.length; ) {
             string memory url = _urls[i];
 
@@ -207,6 +210,35 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
                 ++i;
             }
         }
+    }
+
+    /// @notice Pin the post
+    /// @dev if the postId to pin is 0, store max value of uint256 instead of 0
+    /// @param _name domain name
+    /// @param _nameSpace namespace
+    /// @param _postId id of the post to pin
+    function pinPost(string calldata _name, string calldata _nameSpace, uint256 _postId) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+        bytes32 tokenId = keccak256(bytes(_name));
+
+        require(bytes(_nameSpace).length == 0, "Post: only root page is allowed");
+        require(pinnedPostId[tokenId][_nameSpace] == 0, "Post: pinned post already exists");
+
+        if (_postId == 0) {
+            pinnedPostId[tokenId][_nameSpace] = type(uint256).max;
+        } else {
+            pinnedPostId[tokenId][_nameSpace] = _postId;
+        }
+    }
+
+    /// @notice Unpin the post 
+    /// @param _name domain name
+    /// @param _nameSpace namespace
+    function unpinPost(string calldata _name, string calldata _nameSpace) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+        bytes32 tokenId = keccak256(bytes(_name));
+
+        require(pinnedPostId[tokenId][_nameSpace] != 0, "Post: pinned post not exist");
+        
+        delete pinnedPostId[tokenId][_nameSpace];
     }
 
     /// @notice Returns all the valid posts registered in the specific domain
