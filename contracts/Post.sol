@@ -205,9 +205,17 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
                         _isAllNameSpace ||
                         keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace))
                     ) {
+                        // transfer the ownership
                         posts[tokenId][i].owner = _receiver;
-                        if (pinnedPostId[tokenId][sender][postInfo.nameSpace] == postInfo.postId) {
-                            // reset the pinned post to avoid the multiple pinned post
+
+                        // reset the pinned post to avoid the multiple pinned post
+                        uint256 targetPostId = pinnedPostId[tokenId][sender][postInfo.nameSpace];
+                        if (targetPostId == type(uint256).max) {
+                            // if pinnedPostId = type(uint256).max, it means the postId 0
+                            targetPostId = 0;
+                        }
+
+                        if (postInfo.postId == targetPostId) {
                             delete pinnedPostId[tokenId][sender][_nameSpace];
                         }
                     }
