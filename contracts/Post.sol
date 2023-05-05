@@ -241,7 +241,6 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         bytes32 tokenId = keccak256(bytes(_name));
         address domainOwner = msg.sender;
 
-        require(bytes(_nameSpace).length == 0, "Post: only root page is allowed");
         require(pinnedPostId[tokenId][domainOwner][_nameSpace] == 0, "Post: pinned post already exists");
 
         if (_postId == 0) {
