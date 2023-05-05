@@ -97,7 +97,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
 
         require(bytes(_nameSpace).length <= 1024, "Post: alias too long");
 
-        uint256 nextPostId = posts[tokenId].length + 1;
+        uint256 nextPostId = posts[tokenId].length;
         for (uint256 i = 0; i < _urls.length; ) {
             string memory url = _urls[i];
 
@@ -311,5 +311,16 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @notice Unpause the contract
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /// @notice Migrate Tweet contract data to Post contract
+    function migrate(string calldata _name, string calldata _tweetURL) external onlyOwner {
+        bytes32 tokenId = keccak256(bytes(_name));
+        address dcOwner = IDC(dc).ownerOf(_name);
+
+        // add a new post
+        uint256 nextPostId = posts[tokenId].length;
+        PostInfo memory postInfo = PostInfo({postId: nextPostId, url: _tweetURL, nameSpace: "", owner: dcOwner});
+        posts[tokenId].push(postInfo);
     }
 }
