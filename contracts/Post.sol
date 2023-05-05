@@ -186,7 +186,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @param _receiver address to receive the posts
     /// @param _isAllNameSpace indicate whether posts in all name spaces should be transferred or not
     /// @param _nameSpace name space of the posts to trasnfer, available only if _isAllNameSpace = false
-    function trasnferPostOwnership(
+    function transferPostOwnership(
         string calldata _name,
         address _receiver,
         bool _isAllNameSpace,

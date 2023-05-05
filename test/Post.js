@@ -96,7 +96,7 @@ describe("Post", () => {
             await post.connect(alice).addNewPost(dotName, urls, nameSpace);
 
             // transfer the ownership
-            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
             await mockDC.connect(bob).trasnferDomain(dotName);
 
             expect(await post.getPostCount(dotName)).to.equal(urls.length);
@@ -147,7 +147,7 @@ describe("Post", () => {
             ]);
 
             // transfer the ownership
-            await post.connect(bob).trasnferPostOwnership(dotName, john.address, false, nameSpace);
+            await post.connect(bob).transferPostOwnership(dotName, john.address, false, nameSpace);
             await mockDC.connect(john).trasnferDomain(dotName);
 
             expect(await post.getPostCount(dotName)).to.equal(urls.length + newURLs.length);
@@ -305,7 +305,7 @@ describe("Post", () => {
             expect(await post.getPostCount(dotName)).to.equal(urls.length);
 
             // transfer the ownership
-            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
             await mockDC.connect(bob).trasnferDomain(dotName);
 
             // delete the URL
@@ -324,7 +324,7 @@ describe("Post", () => {
             expect(await post.getPostCount(dotName)).to.equal(urls.length);
 
             // transfer the ownership
-            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
 
             // set new posts
             const newURLs = ["newURL1", "newURL2", "newURL3"];
@@ -346,7 +346,7 @@ describe("Post", () => {
 
         it("Should not be able to delete the posts after the domain ownership is changed but the post ownership is not changed", async () => {
             // transfer the ownership
-            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
 
             // delete the URL
             await expect(post.connect(alice).deletePost(dotName, [1, 2])).to.be.revertedWith(
@@ -422,7 +422,7 @@ describe("Post", () => {
             expect(await post.getPostCount(dotName)).to.equal(urls.length);
 
             // transfer the ownership
-            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
             await mockDC.connect(bob).trasnferDomain(dotName);
 
             // update the post
@@ -454,7 +454,7 @@ describe("Post", () => {
 
         it("Should revert if the domain ownership is changed but the post ownership is not changed", async () => {
             // transfer the ownership
-            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
 
             // update the post
             const postId = 1;
@@ -523,7 +523,7 @@ describe("Post", () => {
         });
     });
 
-    describe("trasnferPostOwnership", () => {
+    describe("transferPostOwnership", () => {
         const urls = ["url1", "url2", "url3"];
         const nameSpace = "nameSpace";
 
@@ -557,7 +557,7 @@ describe("Post", () => {
             await post.connect(alice).deletePost(dotName, [1]);
 
             // transfer the ownership
-            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
 
             expect(await post.getPostCount(dotName)).to.equal(urls.length - 1);
             expect((await post.getPosts(dotName))[0]).to.deep.equal([
@@ -574,7 +574,7 @@ describe("Post", () => {
             ]);
 
             // transfer the ownership again - nothing happens
-            await post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "");
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
 
             expect(await post.getPostCount(dotName)).to.equal(urls.length - 1);
             expect((await post.getPosts(dotName))[0]).to.deep.equal([
@@ -598,13 +598,13 @@ describe("Post", () => {
 
             // transfer the ownership
             await expect(
-                post.connect(alice).trasnferPostOwnership(dotName, bob.address, true, "")
+                post.connect(alice).transferPostOwnership(dotName, bob.address, true, "")
             ).to.be.revertedWith("Post: expired domain");
         });
 
         it("Should revert if the caller is not the domain owner", async () => {
             // transfer the ownership
-            await expect(post.trasnferPostOwnership(dotName, bob.address, true, "")).to.be.reverted;
+            await expect(post.transferPostOwnership(dotName, bob.address, true, "")).to.be.reverted;
         });
     });
 
