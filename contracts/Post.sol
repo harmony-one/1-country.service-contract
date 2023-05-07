@@ -216,7 +216,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
                         }
 
                         if (postInfo.postId == targetPostId) {
-                            delete pinnedPostId[tokenId][sender][_nameSpace];
+                            delete pinnedPostId[tokenId][sender][postInfo.nameSpace];
                         }
                     }
                 }
@@ -240,8 +240,11 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
         bytes32 tokenId = keccak256(bytes(_name));
         address domainOwner = msg.sender;
+        PostInfo memory postInfo = posts[tokenId][_postId];
 
         require(pinnedPostId[tokenId][domainOwner][_nameSpace] == 0, "Post: pinned post already exists");
+        require(keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace)), "Post: mismatched namespace");
+        require(postInfo.owner == domainOwner, "Post: invalid post owner");
 
         if (_postId == 0) {
             pinnedPostId[tokenId][domainOwner][_nameSpace] = type(uint256).max;
