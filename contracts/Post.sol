@@ -32,13 +32,12 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     event NewPostAdded(address indexed by, string indexed name, PostInfo post);
     event PostDeleted(address indexed by, string indexed name, PostInfo post);
     event PostUpdated(
-        address by,
+        address indexed by,
         string indexed name,
         uint256 indexed postId,
         string oldURL,
         string newURL,
-        string indexed nameSpace,
-        address owner
+        string oldNameSpace
     );
     event RevenueAccountChanged(address indexed from, address indexed to);
 
@@ -175,7 +174,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         require(postInfo.owner == domainOwner, "Post: only post owner");
         require(!isPostDeleted[tokenId][_postId], "Post: not exist");
 
-        emit PostUpdated(msg.sender, _name, _postId, postInfo.url, _newURL, postInfo.nameSpace, domainOwner);
+        emit PostUpdated(msg.sender, _name, _postId, postInfo.url, _newURL, postInfo.nameSpace);
 
         // update the post
         posts[tokenId][_postId].url = _newURL;
@@ -242,6 +241,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         address domainOwner = msg.sender;
         PostInfo memory postInfo = posts[tokenId][_postId];
 
+        require(!isPostDeleted[tokenId][_postId], "Post: not exist");
         require(pinnedPostId[tokenId][domainOwner][_nameSpace] == 0, "Post: pinned post already exists");
         require(
             keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace)),
