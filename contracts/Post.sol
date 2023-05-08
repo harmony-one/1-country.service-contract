@@ -243,7 +243,10 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         PostInfo memory postInfo = posts[tokenId][_postId];
 
         require(pinnedPostId[tokenId][domainOwner][_nameSpace] == 0, "Post: pinned post already exists");
-        require(keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace)), "Post: mismatched namespace");
+        require(
+            keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace)),
+            "Post: mismatched namespace"
+        );
         require(postInfo.owner == domainOwner, "Post: invalid post owner");
 
         if (_postId == 0) {
