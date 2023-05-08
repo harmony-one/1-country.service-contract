@@ -56,7 +56,7 @@ describe("VanityURL", () => {
         });
 
         it("Should revert if the caller is not owner", async () => {
-            await expect(vanityURL.connect(alice).setURLUpdatePrice(alice.address)).to.be.reverted;
+            await expect(vanityURL.connect(alice).setURLUpdatePrice(urlUpdatePrice)).to.be.reverted;
         });
     });
 
