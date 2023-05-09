@@ -29,6 +29,9 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @dev DC TokenId -> Owner -> NameSpace -> PostId pinned
     mapping(bytes32 => mapping(address => mapping(string => uint256))) public pinnedPostId;
 
+    /// @dev Price for the post addition
+    uint256 public postAddPrice;
+
     event NewPostAdded(address indexed by, string indexed name, PostInfo post);
     event PostDeleted(address indexed by, string indexed name, PostInfo post);
     event PostUpdated(
@@ -74,6 +77,12 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         dc = _dc;
     }
 
+    /// @notice Set the price for the post addition
+    /// @param _postAddPrice price for the post addition
+    function setPostAddPrice(uint256 _postAddPrice) external onlyOwner {
+        postAddPrice = _postAddPrice;
+    }
+
     /// @notice Set the revenue account
     /// @param _revenueAccount revenue account address
     function setRevenueAccount(address _revenueAccount) public onlyOwner {
@@ -95,6 +104,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         bytes32 tokenId = keccak256(bytes(_name));
 
         require(bytes(_nameSpace).length <= 1024, "Post: alias too long");
+        require(msg.value == postAddPrice, "Post: incorrect payment");
 
         uint256 nextPostId = posts[tokenId].length;
         for (uint256 i = 0; i < _urls.length; ) {
