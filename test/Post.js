@@ -628,6 +628,17 @@ describe("Post", () => {
             expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(postId);
         });
 
+        it("Should revert if the post to pin was already deleted", async () => {
+            // delete the posts
+            await post.connect(alice).deletePost(dotName, [0, 1]);
+
+            // pin the post
+            const postId = 1;
+            await expect(
+                post.connect(alice).pinPost(dotName, nameSpace, postId)
+            ).to.be.revertedWith("Post: not exist");
+        });
+
         it("Should revert if the namespace is not matched", async () => {
             // pin the post
             const postId = 1;
