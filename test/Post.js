@@ -3,6 +3,7 @@ const { ethers, upgrades, network } = require("hardhat");
 const { BigNumber } = require("ethers");
 
 const dotName = "test.country";
+const tokenId = ethers.utils.id(dotName);
 
 const ZERO_ADDRESS = ethers.constants.AddressZero;
 
@@ -605,6 +606,157 @@ describe("Post", () => {
         it("Should revert if the caller is not the domain owner", async () => {
             // transfer the ownership
             await expect(post.transferPostOwnership(dotName, bob.address, true, "")).to.be.reverted;
+        });
+    });
+
+    describe("pinPost", () => {
+        const urls = ["url1", "url2", "url3"];
+        const nameSpace = "nameSpace";
+
+        beforeEach(async () => {
+            await mockDC.connect(alice).register(dotName);
+            await post.connect(alice).addNewPost(dotName, urls, nameSpace);
+        });
+
+        it("Should be able to pin the post", async () => {
+            expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(0);
+
+            // pin the post
+            const postId = 1;
+            await post.connect(alice).pinPost(dotName, nameSpace, postId);
+
+            expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(postId);
+        });
+
+        it("Should revert if the namespace is not matched", async () => {
+            // pin the post
+            const postId = 1;
+            await expect(
+                post.connect(alice).pinPost(dotName, "anotherNameSpace", postId)
+            ).to.be.revertedWith("Post: mismatched namespace");
+        });
+
+        it("Should revert if the post owner is not matched", async () => {
+            // pin the post
+            let postId = 0;
+            await post.connect(alice).pinPost(dotName, nameSpace, postId);
+
+            expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(
+                ethers.constants.MaxUint256
+            );
+            expect(await post.pinnedPostId(tokenId, bob.address, nameSpace)).to.equal(0);
+
+            // transfer the post ownership
+            await post.connect(alice).transferPostOwnership(dotName, bob.address, true, "");
+
+            expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(0);
+            expect(await post.pinnedPostId(tokenId, bob.address, nameSpace)).to.equal(0);
+
+            await expect(
+                post.connect(alice).pinPost(dotName, nameSpace, postId)
+            ).to.be.revertedWith("Post: invalid post owner");
+
+            // transfer the domain ownership
+            await mockDC.connect(bob).trasnferDomain(dotName);
+
+            // pin the post
+            postId = 1;
+            await post.connect(bob).pinPost(dotName, nameSpace, postId);
+
+            expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(0);
+            expect(await post.pinnedPostId(tokenId, bob.address, nameSpace)).to.equal(postId);
+
+            // transfer the ownership
+            await post.connect(bob).transferPostOwnership(dotName, alice.address, false, nameSpace);
+
+            expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(0);
+            expect(await post.pinnedPostId(tokenId, bob.address, nameSpace)).to.equal(0);
+
+            await expect(post.connect(bob).pinPost(dotName, nameSpace, postId)).to.be.revertedWith(
+                "Post: invalid post owner"
+            );
+        });
+
+        it("Should revert if the pinned post already exists", async () => {
+            // pin the post
+            const postId = 1;
+            await post.connect(alice).pinPost(dotName, nameSpace, postId);
+
+            // pin the post again
+            const newPostId = 0;
+            await expect(
+                post.connect(alice).pinPost(dotName, nameSpace, newPostId)
+            ).to.be.revertedWith("Post: pinned post already exists");
+        });
+
+        it("Should revert if the domain is expired", async () => {
+            // increase time
+            const duration = await mockDC.duration();
+            await increaseTime(Number(duration.add(1)));
+
+            // pin the post
+            const postId = 1;
+            await expect(
+                post.connect(alice).pinPost(dotName, nameSpace, postId)
+            ).to.be.revertedWith("Post: expired domain");
+        });
+
+        it("Should revert if the caller is not the name owner", async () => {
+            // pin the post
+            const postId = 1;
+            await expect(post.pinPost(dotName, nameSpace, postId)).to.be.revertedWith(
+                "Post: only DC owner"
+            );
+        });
+    });
+
+    describe("unpinPost", () => {
+        const urls = ["url1", "url2", "url3"];
+        const nameSpace = "nameSpace";
+        const postId = 1;
+
+        beforeEach(async () => {
+            await mockDC.connect(alice).register(dotName);
+            await post.connect(alice).addNewPost(dotName, urls, nameSpace);
+
+            await post.connect(alice).pinPost(dotName, nameSpace, postId);
+        });
+
+        it("Should be able to unpin the post", async () => {
+            expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(postId);
+
+            // unpin the post
+            await post.connect(alice).unpinPost(dotName, nameSpace);
+
+            expect(await post.pinnedPostId(tokenId, alice.address, nameSpace)).to.equal(0);
+        });
+
+        it("Should revert if the pinned post does not exist", async () => {
+            // unpin the post
+            await post.connect(alice).unpinPost(dotName, nameSpace);
+
+            // unpin the post again
+            await expect(post.connect(alice).unpinPost(dotName, nameSpace)).to.be.revertedWith(
+                "Post: pinned post not exist"
+            );
+        });
+
+        it("Should revert if the domain is expired", async () => {
+            // increase time
+            const duration = await mockDC.duration();
+            await increaseTime(Number(duration.add(1)));
+
+            // unpin the post
+            await expect(post.connect(alice).unpinPost(dotName, nameSpace)).to.be.revertedWith(
+                "Post: expired domain"
+            );
+        });
+
+        it("Should revert if the caller is not the name owner", async () => {
+            // unpin the post
+            await expect(post.unpinPost(dotName, nameSpace)).to.be.revertedWith(
+                "Post: only DC owner"
+            );
         });
     });
 
