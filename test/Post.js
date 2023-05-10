@@ -4,6 +4,7 @@ const { BigNumber } = require("ethers");
 
 const dotName = "test.country";
 const tokenId = ethers.utils.id(dotName);
+const postAddPrice = ethers.utils.parseEther("1");
 
 const ZERO_ADDRESS = ethers.constants.AddressZero;
 
@@ -42,6 +43,20 @@ describe("Post", () => {
         });
     });
 
+    describe("setPostAddPrice", () => {
+        it("Should be able set the post addition price", async () => {
+            expect(await post.postAddPrice()).to.equal(0);
+
+            await post.setPostAddPrice(postAddPrice.add(1));
+
+            expect(await post.postAddPrice()).to.equal(postAddPrice.add(1));
+        });
+
+        it("Should revert if the caller is not owner", async () => {
+            await expect(post.connect(alice).setPostAddPrice(postAddPrice)).to.be.reverted;
+        });
+    });
+
     describe("setRevenueAccount", () => {
         it("Should be able set the revenue account", async () => {
             expect(await post.revenueAccount()).to.equal(revenueAccount.address);
@@ -68,8 +83,9 @@ describe("Post", () => {
             expect(await post.getPostCount(dotName)).to.equal(0);
             expect(await post.getPosts(dotName)).to.be.empty;
 
-            // set new posts
-            await post.connect(alice).addNewPost(dotName, urls, nameSpace);
+            // set new post
+            await post.setPostAddPrice(postAddPrice);
+            await post.connect(alice).addNewPost(dotName, urls, nameSpace, { value: postAddPrice });
 
             expect(await post.getPostCount(dotName)).to.equal(urls.length);
             expect((await post.getPosts(dotName))[0]).to.deep.equal([
@@ -90,6 +106,16 @@ describe("Post", () => {
                 nameSpace,
                 alice.address,
             ]);
+        });
+
+        it("Should revert if the payment amount is not correct", async () => {
+            // add a new post
+            await post.setPostAddPrice(postAddPrice);
+            await expect(
+                post
+                    .connect(alice)
+                    .addNewPost(dotName, urls, nameSpace, { value: postAddPrice.sub(1) })
+            ).to.be.revertedWith("Post: incorrect payment");
         });
 
         it("Should be able to set new posts after the domain ownership was changed but not expired", async () => {
@@ -767,6 +793,51 @@ describe("Post", () => {
             // unpin the post
             await expect(post.unpinPost(dotName, nameSpace)).to.be.revertedWith(
                 "Post: only DC owner"
+            );
+        });
+    });
+
+    describe("withdraw", () => {
+        const urls = ["url1", "url2", "url3"];
+        const nameSpace = "nameSpace";
+
+        beforeEach(async () => {
+            await mockDC.connect(alice).register(dotName);
+            await post.setPostAddPrice(postAddPrice);
+            await post.connect(alice).addNewPost(dotName, urls, nameSpace, { value: postAddPrice });
+        });
+
+        it("Should be able to withdraw tokens by the owner", async () => {
+            const revenueAccountBalanceBefore = await ethers.provider.getBalance(
+                revenueAccount.address
+            );
+
+            // withdraw ONE tokens
+            await post.withdraw();
+
+            const revenueAccountBalanceAfter = await ethers.provider.getBalance(
+                revenueAccount.address
+            );
+            expect(revenueAccountBalanceAfter).gt(revenueAccountBalanceBefore);
+        });
+
+        it("Should be able to withdraw tokens by revenue account", async () => {
+            const revenueAccountBalanceBefore = await ethers.provider.getBalance(
+                revenueAccount.address
+            );
+
+            // withdraw ONE tokens
+            await post.connect(revenueAccount).withdraw();
+
+            const revenueAccountBalanceAfter = await ethers.provider.getBalance(
+                revenueAccount.address
+            );
+            expect(revenueAccountBalanceAfter).gt(revenueAccountBalanceBefore);
+        });
+
+        it("Should revert if the caller is not the owner or revenue account", async () => {
+            await expect(post.connect(alice).withdraw()).to.be.revertedWith(
+                "Post: must be owner or revenue account"
             );
         });
     });
