@@ -337,13 +337,23 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     }
 
     /// @notice Migrate Tweet contract data to Post contract
-    function migrate(string calldata _name, string calldata _tweetURL) external onlyOwner {
+    function migrate(string calldata _name, string[] calldata _tweetURLs) external onlyOwner {
         bytes32 tokenId = keccak256(bytes(_name));
         address dcOwner = IDC(dc).ownerOf(_name);
 
-        // add a new post
         uint256 nextPostId = posts[tokenId].length;
-        PostInfo memory postInfo = PostInfo({postId: nextPostId, url: _tweetURL, nameSpace: "", owner: dcOwner});
-        posts[tokenId].push(postInfo);
+        for (uint256 i = 0; i < _tweetURLs.length; ) {
+            PostInfo memory postInfo = PostInfo({
+                postId: nextPostId++,
+                url: _tweetURLs[i],
+                nameSpace: "",
+                owner: dcOwner
+            });
+            posts[tokenId].push(postInfo);
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 }
