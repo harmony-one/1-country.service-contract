@@ -22,11 +22,11 @@ contract Emoji is OwnableUpgradeable, PausableUpgradeable {
     /// @dev DC contract
     address public dc;
 
-    /// @dev DC TokenId -> EmojiInfo list
-    mapping(bytes32 => EmojiInfo[]) public emojiReactions;
+    /// @dev DC TokenId -> Subpage URL -> EmojiInfo list
+    mapping(bytes32 => mapping(string => EmojiInfo[])) public emojiReactions;
 
-    /// @dev DC TokenId -> Owner -> EmojiType -> Emoji reaction counter
-    mapping(bytes32 => mapping(address => mapping(EmojiType => uint256))) public emojiReactionCounters;
+    /// @dev DC TokenId -> Subpage URL -> Owner -> EmojiType -> Emoji reaction counter
+    mapping(bytes32 => mapping(string => mapping(address => mapping(EmojiType => uint256)))) public emojiReactionCounters;
 
     /// @dev Emoji Type -> Price
     mapping(EmojiType => uint256) public emojiReactionPrices;
