@@ -15,5 +15,8 @@ bin
 coverage
 coverage.json
 
-# openzeppelin dev files
+#openzeppelin dev files
 .openzeppelin/unknown-*.json
+
+#Migrate
+migrated_data

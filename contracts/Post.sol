@@ -26,16 +26,21 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @dev Fee withdrawal address
     address public revenueAccount;
 
+    /// @dev DC TokenId -> Owner -> NameSpace -> PostId pinned
+    mapping(bytes32 => mapping(address => mapping(string => uint256))) public pinnedPostId;
+
+    /// @dev Price for the post addition
+    uint256 public postAddPrice;
+
     event NewPostAdded(address indexed by, string indexed name, PostInfo post);
     event PostDeleted(address indexed by, string indexed name, PostInfo post);
     event PostUpdated(
-        address by,
+        address indexed by,
         string indexed name,
         uint256 indexed postId,
         string oldURL,
         string newURL,
-        string indexed nameSpace,
-        address owner
+        string oldNameSpace
     );
     event RevenueAccountChanged(address indexed from, address indexed to);
 
@@ -72,6 +77,12 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         dc = _dc;
     }
 
+    /// @notice Set the price for the post addition
+    /// @param _postAddPrice price for the post addition
+    function setPostAddPrice(uint256 _postAddPrice) external onlyOwner {
+        postAddPrice = _postAddPrice;
+    }
+
     /// @notice Set the revenue account
     /// @param _revenueAccount revenue account address
     function setRevenueAccount(address _revenueAccount) public onlyOwner {
@@ -93,6 +104,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         bytes32 tokenId = keccak256(bytes(_name));
 
         require(bytes(_nameSpace).length <= 1024, "Post: alias too long");
+        require(msg.value == postAddPrice, "Post: incorrect payment");
 
         uint256 nextPostId = posts[tokenId].length;
         for (uint256 i = 0; i < _urls.length; ) {
@@ -132,13 +144,17 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
 
         for (uint256 i = 0; i < _postIds.length; ) {
             uint256 postId = _postIds[i];
-            PostInfo memory post = posts[tokenId][postId];
+            PostInfo memory postInfo = posts[tokenId][postId];
 
-            require(post.owner == domainOwner, "Post: only post owner");
+            require(postInfo.owner == domainOwner, "Post: only post owner");
 
             isPostDeleted[tokenId][postId] = true;
+            if (pinnedPostId[tokenId][domainOwner][postInfo.nameSpace] == postId) {
+                // reset the pinned post
+                delete pinnedPostId[tokenId][domainOwner][postInfo.nameSpace];
+            }
 
-            emit PostDeleted(msg.sender, _name, post);
+            emit PostDeleted(msg.sender, _name, postInfo);
 
             unchecked {
                 ++i;
@@ -168,7 +184,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
         require(postInfo.owner == domainOwner, "Post: only post owner");
         require(!isPostDeleted[tokenId][_postId], "Post: not exist");
 
-        emit PostUpdated(msg.sender, _name, _postId, postInfo.url, _newURL, postInfo.nameSpace, domainOwner);
+        emit PostUpdated(msg.sender, _name, _postId, postInfo.url, _newURL, postInfo.nameSpace);
 
         // update the post
         posts[tokenId][_postId].url = _newURL;
@@ -179,7 +195,7 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @param _receiver address to receive the posts
     /// @param _isAllNameSpace indicate whether posts in all name spaces should be transferred or not
     /// @param _nameSpace name space of the posts to trasnfer, available only if _isAllNameSpace = false
-    function trasnferPostOwnership(
+    function transferPostOwnership(
         string calldata _name,
         address _receiver,
         bool _isAllNameSpace,
@@ -198,7 +214,19 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
                         _isAllNameSpace ||
                         keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace))
                     ) {
+                        // transfer the ownership
                         posts[tokenId][i].owner = _receiver;
+
+                        // reset the pinned post to avoid the multiple pinned post
+                        uint256 targetPostId = pinnedPostId[tokenId][sender][postInfo.nameSpace];
+                        if (targetPostId == type(uint256).max) {
+                            // if pinnedPostId = type(uint256).max, it means the postId 0
+                            targetPostId = 0;
+                        }
+
+                        if (postInfo.postId == targetPostId) {
+                            delete pinnedPostId[tokenId][sender][postInfo.nameSpace];
+                        }
                     }
                 }
             }
@@ -207,6 +235,50 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
                 ++i;
             }
         }
+    }
+
+    /// @notice Pin the post
+    /// @dev if the postId to pin is 0, store max value of uint256 instead of 0
+    /// @param _name domain name
+    /// @param _nameSpace namespace
+    /// @param _postId id of the post to pin
+    function pinPost(
+        string calldata _name,
+        string calldata _nameSpace,
+        uint256 _postId
+    ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+        bytes32 tokenId = keccak256(bytes(_name));
+        address domainOwner = msg.sender;
+        PostInfo memory postInfo = posts[tokenId][_postId];
+
+        require(!isPostDeleted[tokenId][_postId], "Post: not exist");
+        require(pinnedPostId[tokenId][domainOwner][_nameSpace] == 0, "Post: pinned post already exists");
+        require(
+            keccak256(abi.encodePacked(postInfo.nameSpace)) == keccak256(abi.encodePacked(_nameSpace)),
+            "Post: mismatched namespace"
+        );
+        require(postInfo.owner == domainOwner, "Post: invalid post owner");
+
+        if (_postId == 0) {
+            pinnedPostId[tokenId][domainOwner][_nameSpace] = type(uint256).max;
+        } else {
+            pinnedPostId[tokenId][domainOwner][_nameSpace] = _postId;
+        }
+    }
+
+    /// @notice Unpin the post
+    /// @param _name domain name
+    /// @param _nameSpace namespace
+    function unpinPost(
+        string calldata _name,
+        string calldata _nameSpace
+    ) external whenNotPaused onlyDCOwner(_name) whenDomainNotExpired(_name) {
+        bytes32 tokenId = keccak256(bytes(_name));
+        address domainOwner = msg.sender;
+
+        require(pinnedPostId[tokenId][domainOwner][_nameSpace] != 0, "Post: pinned post not exist");
+
+        delete pinnedPostId[tokenId][domainOwner][_nameSpace];
     }
 
     /// @notice Returns all the valid posts registered in the specific domain
@@ -262,5 +334,26 @@ contract Post is OwnableUpgradeable, PausableUpgradeable {
     /// @notice Unpause the contract
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /// @notice Migrate Tweet contract data to Post contract
+    function migrate(string calldata _name, string[] calldata _tweetURLs) external onlyOwner {
+        bytes32 tokenId = keccak256(bytes(_name));
+        address dcOwner = IDC(dc).ownerOf(_name);
+
+        uint256 nextPostId = posts[tokenId].length;
+        for (uint256 i = 0; i < _tweetURLs.length; ) {
+            PostInfo memory postInfo = PostInfo({
+                postId: nextPostId++,
+                url: _tweetURLs[i],
+                nameSpace: "",
+                owner: dcOwner
+            });
+            posts[tokenId].push(postInfo);
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 }
