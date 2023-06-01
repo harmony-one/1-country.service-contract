@@ -18,7 +18,8 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         uint256 duration; // months
     }
 
-    USDOracleInterface public usdOracle;
+    /// @dev DC contract address
+    IDC public dc;
 
     /// @dev RadicalMarkets TokenId -> RentalInfo
     mapping(bytes32 => RentalInfo) public rentals;
@@ -35,7 +36,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
     event RevenueAccountChanged(address indexed from, address indexed to);
 
     modifier whenDomainNotExpired(string memory _name) {
-        uint256 domainExpireAt = IDC(dc).nameExpires(_name);
+        uint256 domainExpireAt = dc.nameExpires(_name);
         require(block.timestamp < domainExpireAt, "RadicalMarkets: expired domain");
         _;
     }
@@ -45,16 +46,15 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         _disableInitializers();
     }
 
-    function initialize(address _dc, USDOracleInterface _usdOracle, address _revenueAccount) external initializer {
-        __ERC721_init(".country Domains Radical Markets", "RadicalMarkets");
+    function initialize(address _dc, address _revenueAccount) external initializer {
+        __ERC721_init(".country Domains Radical Markets", "DCRadicalMarkets");
         __Pausable_init();
         __Ownable_init();
 
         require(_dc != address(0), "RadicalMarkets: zero address");
         require(_revenueAccount != address(0), "RadicalMarkets: zero address");
 
-        dc = _dc;
-        usdOracle = _usdOracle;
+        dc = IDC(_dc);
         revenueAccount = _revenueAccount;
     }
 
@@ -63,7 +63,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
     function setDCAddress(address _dc) external onlyOwner {
         require(_dc != address(0), "RadicalMarkets: zero address");
 
-        dc = _dc;
+        dc = IDC(_dc);
     }
 
     /// @notice Set the revenue account
@@ -76,23 +76,15 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         revenueAccount = _revenueAccount;
     }
 
-    /// @notice Returns the rental start price of the domain
-    /// @param _name domain name
-    function getRentalStartPrice(string memory /** _name **/) public view returns (uint256) {
-        // start with $1 regardlessof the domain name for now
-        uint256 amount = 1;
-        uint256 nativeTokenPrice = uint256(usdOracle.latestAnswer());
-
-        return (amount * 1e18) / nativeTokenPrice;
-    }
-
-    function rentDomain(string memory _name, uint256 _months) external payable {
-        // TODO: rent the domain
+    function rentDomain(string memory _name, uint256 _months, bytes32 _secret) external payable {
 
         // mint the `RadicalMarkets` NFT
         uint256 tokenId = uint256(keccak256(_name));
         RentalInfo memory rental = rentals[tokenId];
-        require(!_exists(tokenId) || (rentalStartAt + duration < block.timestamp), "RadicalMarkets: already in use");
+        require(
+            !_exists(tokenId) || (rental.rentalStartAt + duration < block.timestamp),
+            "RadicalMarkets: already in use"
+        );
         if (_exist(tokenId) && (block.timestamp <= rentalStartAt + duration)) {}
         _burn(tokenId);
         delete _mint(msg.sender, tokenId);
