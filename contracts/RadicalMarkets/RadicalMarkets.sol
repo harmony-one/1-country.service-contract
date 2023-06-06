@@ -6,16 +6,22 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
 import "../interfaces/IDC.sol";
+import "./BokkyPooBahsDateTimeContract.sol";
 
 contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable {
     struct RentalInfo {
-        address originRenter;
+        address owner;
+        address renter;
         uint256 rentalStartAt;
         uint256 duration; // months
+        uint256 price;
     }
 
     /// @dev DC contract address
     IDC public dc;
+
+    /// @dev BokkyPooBahsDateTimeContract address
+    BokkyPooBahsDateTimeContract public dateTimeController;
 
     /// @dev RadicalMarkets TokenId -> RentalInfo
     mapping(bytes32 => RentalInfo) public rentals;
@@ -77,16 +83,40 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
     // The secret can be any value. The client then needs to call register using the same parameters used in makeCommitment.
     function rentDomain(
         string memory _name,
-        uint256 _months,
+        uint256 _year,
+        uint256 _month,
+        uint256 _durationInMonths,
         bytes32 _secret
     ) external payable whenDomainNotExistOrExpired(_name) {
-        // register the domain
-        bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
-        dc.commit(commitment);
-        dc.register(_name, address(this), _secret);
+
+        // // register the domain
+        // bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
+        // dc.commit(commitment);
+        // dc.register(_name, address(this), _secret);
+
+        // uint256 currentYear = dateTimeController.getYear(block.timestamp);
+        // uint256 currentMonth = dateTimeController.getMonth(block.timestamp);
+        uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1, 0, 0, 0);
+        uint256 endTimestampToRent = dateTimeController.addMonths(startTimestampToRent, _durationInMonths);
+        uint256 domainExpireAt = dc.nameExpires(_name);
+        require(domainExpireAt == 0 || domainExpireAt < block.timestamp, "RadicalMarkets: domain exists or in use");    // whenDomainNotExistOrExpired
+        // require(
+        //     (currentYear < _year) || (currentYear == _year && currentMonth <= _month),
+        //     "RadicalMarkets: invalid start date"
+        // );
+        require(block.timestamp <= startTimestampToRent, "RadicalMarkets: invalid start date")
+        require(endTimestampToRent <= domainExpireAt, "RadicalMarkets: invalid rental duration");
 
         // mint the `RadicalMarkets` NFT
-        uint256 tokenId = uint256(keccak256(_name));
+        uint256 domainExpireAt = dc.nameExpires(_name);
+        if (block.timestamp <= domainExpireAt) {    // domain exist
+
+        } else {    // domain not exist or expired
+            uint256 tokenId = uint256(keccak256(_name));
+            if (_exists(tokenId)) {
+                _burn(tokenId);
+            }
+        }
         RentalInfo memory rental = rentals[tokenId];
         require(
             !_exists(tokenId) || (rental.rentalStartAt + duration < block.timestamp),
