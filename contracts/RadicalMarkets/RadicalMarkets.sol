@@ -98,11 +98,12 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         // bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
         // dc.commit(commitment);
         // dc.register(_name, address(this), _secret);
-        
+
         uint256 domainExpireAt = dc.nameExpires(_name);
         bool isDomainNotExist = domainExpireAt == 0;
         bool isDomainInUse = domainExpireAt != 0 && block.timestamp <= domainExpireAt;
-        bool isDomainInGracePeriod = domainExpireAt < block.timestamp && block.timestamp <= domainExpireAt + GRACE_PERIOD;
+        bool isDomainInGracePeriod = domainExpireAt < block.timestamp &&
+            block.timestamp <= domainExpireAt + GRACE_PERIOD;
         // require(domainExpireAt == 0 || block.timestamp <= domainExpireAt, "RadicalMarkets: domain in use"); // whenDomainNotExistOrExpired
         // require(
         //     (currentYear < _year) || (currentYear == _year && currentMonth <= _month),
@@ -126,12 +127,8 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
             // if the domain doesn't exist, rent it from the current month
             require(_year == currentYear && _month == currentMonth, "RadicalMarkets: invalid start date");
             _rentDomainNotExist(_name, _year, _month, _durationInMonth, _secret);
-        } else if (isDomainInUse) {
-            
-        } else if (isDomainInGracePeriod) {
-
-        } else {    // domain expired fully
-
+        } else if (isDomainInUse) {} else if (isDomainInGracePeriod) {} else {
+            // domain expired fully
         }
 
         // mint the `RadicalMarkets` NFT
@@ -160,17 +157,21 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         RentalInfo storage rental = rentals[tokenId];
     }
 
-    function _rentDomainNotExist(string memory _name, uint256 _year, uint256 _month, uint256 _durationInMonth, bytes32 _secret) internal {
+    function _rentDomainNotExist(
+        string memory _name,
+        uint256 _year,
+        uint256 _month,
+        uint256 _durationInMonth,
+        bytes32 _secret
+    ) internal {
         bytes32 tokenId = keccak256(bytes(_name));
         _mint(msg.sender, tokenId);
-        
+
         rentals[tokenId].owner = msg.sender;
         rentals[tokenId].renter = msg.sender;
         rentals[tokenId].rentalStartAt = block.timestamp;
         rentals[tokenId].duation = _durationInMonth;
-        for (uint256 i; i < _durationInMonth;) {
-            
-
+        for (uint256 i; i < _durationInMonth; ) {
             unchecked {
                 ++i;
             }
@@ -178,10 +179,15 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         rentals[tokenId].price = getDomainRentalPrice(_name, _year, _month);
     }
 
-    function getDomainRentalPrice(string memory _name, uint256 _year, uint256 _month, uint256 _durationInMonth) public view returns (uint256 price) {
+    function getDomainRentalPrice(
+        string memory _name,
+        uint256 _year,
+        uint256 _month,
+        uint256 _durationInMonth
+    ) public view returns (uint256 price) {
         bytes32 tokenId = keccak256(bytes(_name));
         price = rentalPrices[tokenId][_year][_month];
-        if (price == 0) price = 1 ether;    // base rental price is 1 ONE
+        if (price == 0) price = 1 ether; // base rental price is 1 ONE
     }
 
     /// @notice Withdraw funds
