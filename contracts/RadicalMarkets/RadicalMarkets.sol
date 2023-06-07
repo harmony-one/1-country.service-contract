@@ -17,6 +17,9 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         uint256 price;
     }
 
+    /// @dev Grace period for renewing a domain
+    uint256 public constant GRACE_PERIOD = 90 days;
+
     /// @dev DC contract address
     IDC public dc;
 
@@ -25,6 +28,9 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
 
     /// @dev RadicalMarkets TokenId -> RentalInfo
     mapping(bytes32 => RentalInfo) public rentals;
+
+    /// @dev RadicalMarkets TokenId -> Year -> Month -> Price
+    mapping(bytes32 => mapping(uint256 => mapping(uint256 => uint256))) public rentalPrices;
 
     /// @dev Revenue account
     address public revenueAccount;
@@ -85,33 +91,57 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         string memory _name,
         uint256 _year,
         uint256 _month,
-        uint256 _durationInMonths,
+        uint256 _durationInMonth,
         bytes32 _secret
     ) external payable whenDomainNotExistOrExpired(_name) {
-
         // // register the domain
         // bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
         // dc.commit(commitment);
         // dc.register(_name, address(this), _secret);
-
-        // uint256 currentYear = dateTimeController.getYear(block.timestamp);
-        // uint256 currentMonth = dateTimeController.getMonth(block.timestamp);
-        uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1, 0, 0, 0);
-        uint256 endTimestampToRent = dateTimeController.addMonths(startTimestampToRent, _durationInMonths);
+        
         uint256 domainExpireAt = dc.nameExpires(_name);
-        require(domainExpireAt == 0 || domainExpireAt < block.timestamp, "RadicalMarkets: domain exists or in use");    // whenDomainNotExistOrExpired
+        bool isDomainNotExist = domainExpireAt == 0;
+        bool isDomainInUse = domainExpireAt != 0 && block.timestamp <= domainExpireAt;
+        bool isDomainInGracePeriod = domainExpireAt < block.timestamp && block.timestamp <= domainExpireAt + GRACE_PERIOD;
+        // require(domainExpireAt == 0 || block.timestamp <= domainExpireAt, "RadicalMarkets: domain in use"); // whenDomainNotExistOrExpired
         // require(
         //     (currentYear < _year) || (currentYear == _year && currentMonth <= _month),
         //     "RadicalMarkets: invalid start date"
         // );
-        require(block.timestamp <= startTimestampToRent, "RadicalMarkets: invalid start date")
-        require(endTimestampToRent <= domainExpireAt, "RadicalMarkets: invalid rental duration");
+        // require(block.timestamp <= startTimestampToRent, "RadicalMarkets: invalid start date");
+        // require(endTimestampToRent <= domainExpireAt, "RadicalMarkets: invalid rental duration");
+
+        uint256 currentYear = dateTimeController.getYear(block.timestamp);
+        uint256 currentMonth = dateTimeController.getMonth(block.timestamp);
+        uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1, 0, 0, 0);
+        uint256 endTimestampToRent = dateTimeController.addMonths(startTimestampToRent, _durationInMonth);
+
+        // the rental start date can't be in the past
+        require(
+            ((currentYear == _year && currentMonth <= _month) || currentYear < _year),
+            "RadicalMarkets: start date in the past"
+        );
+
+        if (isDomainNotExist) {
+            // if the domain doesn't exist, rent it from the current month
+            require(_year == currentYear && _month == currentMonth, "RadicalMarkets: invalid start date");
+            _rentDomainNotExist(_name, _year, _month, _durationInMonth, _secret);
+        } else if (isDomainInUse) {
+            
+        } else if (isDomainInGracePeriod) {
+
+        } else {    // domain expired fully
+
+        }
 
         // mint the `RadicalMarkets` NFT
+        uint256 tokenId = uint256(keccak256(_name));
+        // if (_exists(tokenId)) _burn(tokenId);
         uint256 domainExpireAt = dc.nameExpires(_name);
-        if (block.timestamp <= domainExpireAt) {    // domain exist
-
-        } else {    // domain not exist or expired
+        if (block.timestamp <= domainExpireAt) {
+            // domain exist
+        } else {
+            // domain not exist or expired
             uint256 tokenId = uint256(keccak256(_name));
             if (_exists(tokenId)) {
                 _burn(tokenId);
@@ -128,6 +158,30 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
 
         // store the rental info
         RentalInfo storage rental = rentals[tokenId];
+    }
+
+    function _rentDomainNotExist(string memory _name, uint256 _year, uint256 _month, uint256 _durationInMonth, bytes32 _secret) internal {
+        bytes32 tokenId = keccak256(bytes(_name));
+        _mint(msg.sender, tokenId);
+        
+        rentals[tokenId].owner = msg.sender;
+        rentals[tokenId].renter = msg.sender;
+        rentals[tokenId].rentalStartAt = block.timestamp;
+        rentals[tokenId].duation = _durationInMonth;
+        for (uint256 i; i < _durationInMonth;) {
+            
+
+            unchecked {
+                ++i;
+            }
+        }
+        rentals[tokenId].price = getDomainRentalPrice(_name, _year, _month);
+    }
+
+    function getDomainRentalPrice(string memory _name, uint256 _year, uint256 _month, uint256 _durationInMonth) public view returns (uint256 price) {
+        bytes32 tokenId = keccak256(bytes(_name));
+        price = rentalPrices[tokenId][_year][_month];
+        if (price == 0) price = 1 ether;    // base rental price is 1 ONE
     }
 
     /// @notice Withdraw funds
