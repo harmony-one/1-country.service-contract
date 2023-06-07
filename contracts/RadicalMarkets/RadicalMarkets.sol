@@ -14,7 +14,6 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         address renter;
         uint256 rentalStartAt;
         uint256 duration; // months
-        uint256 price;
     }
 
     /// @dev Grace period for renewing a domain
@@ -164,19 +163,44 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         uint256 _durationInMonth,
         bytes32 _secret
     ) internal {
+        // mint the `RadicalMarkets` NFT
         bytes32 tokenId = keccak256(bytes(_name));
         _mint(msg.sender, tokenId);
 
+        // store the rental info
         rentals[tokenId].owner = msg.sender;
         rentals[tokenId].renter = msg.sender;
         rentals[tokenId].rentalStartAt = block.timestamp;
         rentals[tokenId].duation = _durationInMonth;
+
+        // check the rental price
+        uint256 domainRentalPrice = getDomainRentalPrice(_name, _year, _month);
+        require(msg.value == domainRentalPrice, "RadicalMarkets: invalid rental price");
+
+        // set the next domain rental price
         for (uint256 i; i < _durationInMonth; ) {
+            uint256 yearToSet = _year + (_month + i) / 12;
+            uint256 monthToSet = (_month + i) % 12;
+            rentalPrices[tokenId][yearToSet][monthToSet] = domainRentalPrice * 2;
+
             unchecked {
                 ++i;
             }
         }
-        rentals[tokenId].price = getDomainRentalPrice(_name, _year, _month);
+
+        // register the domain and lock it
+        bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
+        dc.commit(commitment);
+        dc.register(_name, address(this), _secret);
+    }
+
+    function _rentDomainInUse(
+        string memory _name,
+        uint256 _year,
+        uint256 _month,
+        uint256 _durationIm
+    ) internal {
+        
     }
 
     function getDomainRentalPrice(
