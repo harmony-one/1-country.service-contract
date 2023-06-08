@@ -167,16 +167,14 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         dc.register(_name, address(this), _secret);
     }
 
-    function _rentDomainInUse(string memory _name, uint256 _year, uint256 _month, uint256 _durationIm) internal {
-
-    }
+    function _rentDomainInUse(string memory _name, uint256 _year, uint256 _month, uint256 _durationIm) internal {}
 
     function getDomainRentalPrice(
         string memory _name,
         uint256 _year,
         uint256 _month
     ) public view returns (uint256 price) {
-        (,, price) = getRentalInfo(_name, _year, _month);
+        (, , price) = getRentalInfo(_name, _year, _month);
         if (price == 0) price = 1 ether; // base rental price is 1 ONE
     }
 
