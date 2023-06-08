@@ -10,10 +10,9 @@ import "./BokkyPooBahsDateTimeContract.sol";
 
 contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable {
     struct RentalInfo {
-        address owner;
-        address renter;
-        uint256 rentalStartAt;
-        uint256 duration; // months
+        address prevRenter;
+        address nextRenter;
+        uint256 price;
     }
 
     /// @dev Grace period for renewing a domain
@@ -25,11 +24,8 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
     /// @dev BokkyPooBahsDateTimeContract address
     BokkyPooBahsDateTimeContract public dateTimeController;
 
-    /// @dev RadicalMarkets TokenId -> RentalInfo
-    mapping(bytes32 => RentalInfo) public rentals;
-
-    /// @dev RadicalMarkets TokenId -> Year -> Month -> Price
-    mapping(bytes32 => mapping(uint256 => mapping(uint256 => uint256))) public rentalPrices;
+    /// @dev RadicalMarkets TokenId -> Year -> Month -> RentalInfo
+    mapping(bytes32 => mapping(uint256 => mapping(uint256 => RentalInfo))) public rentals;
 
     /// @dev Revenue account
     address public revenueAccount;
@@ -113,7 +109,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
 
         uint256 currentYear = dateTimeController.getYear(block.timestamp);
         uint256 currentMonth = dateTimeController.getMonth(block.timestamp);
-        uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1, 0, 0, 0);
+        uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1);
         uint256 endTimestampToRent = dateTimeController.addMonths(startTimestampToRent, _durationInMonth);
 
         // the rental start date can't be in the past
@@ -129,31 +125,6 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         } else if (isDomainInUse) {} else if (isDomainInGracePeriod) {} else {
             // domain expired fully
         }
-
-        // mint the `RadicalMarkets` NFT
-        uint256 tokenId = uint256(keccak256(_name));
-        // if (_exists(tokenId)) _burn(tokenId);
-        uint256 domainExpireAt = dc.nameExpires(_name);
-        if (block.timestamp <= domainExpireAt) {
-            // domain exist
-        } else {
-            // domain not exist or expired
-            uint256 tokenId = uint256(keccak256(_name));
-            if (_exists(tokenId)) {
-                _burn(tokenId);
-            }
-        }
-        RentalInfo memory rental = rentals[tokenId];
-        require(
-            !_exists(tokenId) || (rental.rentalStartAt + duration < block.timestamp),
-            "RadicalMarkets: already in use"
-        );
-        if (_exist(tokenId) && (block.timestamp <= rentalStartAt + duration)) {}
-        _burn(tokenId);
-        delete _mint(msg.sender, tokenId);
-
-        // store the rental info
-        RentalInfo storage rental = rentals[tokenId];
     }
 
     function _rentDomainNotExist(
@@ -165,23 +136,25 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
     ) internal {
         // mint the `RadicalMarkets` NFT
         bytes32 tokenId = keccak256(bytes(_name));
-        _mint(msg.sender, tokenId);
+        _mint(msg.sender, uint256(tokenId));
 
         // store the rental info
-        rentals[tokenId].owner = msg.sender;
-        rentals[tokenId].renter = msg.sender;
-        rentals[tokenId].rentalStartAt = block.timestamp;
-        rentals[tokenId].duation = _durationInMonth;
-
-        // check the rental price
-        uint256 domainRentalPrice = getDomainRentalPrice(_name, _year, _month);
-        require(msg.value == domainRentalPrice, "RadicalMarkets: invalid rental price");
-
-        // set the next domain rental price
         for (uint256 i; i < _durationInMonth; ) {
             uint256 yearToSet = _year + (_month + i) / 12;
             uint256 monthToSet = (_month + i) % 12;
-            rentalPrices[tokenId][yearToSet][monthToSet] = domainRentalPrice * 2;
+            uint256 domainRentalPrice = getDomainRentalPrice(_name, _year, _month);
+
+            // handle the payment (half to the revenue account, half to the previous renter)
+            // since the previous renter doesn't exist, the revenue account gets the full amount
+            require(msg.value == domainRentalPrice, "RadicalMarkets: invalid rental price");
+            revenueAccount.call{value: domainRentalPrice}("");
+
+            RentalInfo memory rental = RentalInfo({
+                prevRenter: address(0),
+                nextRenter: msg.sender,
+                price: domainRentalPrice * 2
+            });
+            rentals[tokenId][yearToSet][monthToSet] = rental;
 
             unchecked {
                 ++i;
@@ -194,17 +167,29 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         dc.register(_name, address(this), _secret);
     }
 
-    function _rentDomainInUse(string memory _name, uint256 _year, uint256 _month, uint256 _durationIm) internal {}
+    function _rentDomainInUse(string memory _name, uint256 _year, uint256 _month, uint256 _durationIm) internal {
+
+    }
 
     function getDomainRentalPrice(
         string memory _name,
         uint256 _year,
-        uint256 _month,
-        uint256 _durationInMonth
+        uint256 _month
     ) public view returns (uint256 price) {
-        bytes32 tokenId = keccak256(bytes(_name));
-        price = rentalPrices[tokenId][_year][_month];
+        (,, price) = getRentalInfo(_name, _year, _month);
         if (price == 0) price = 1 ether; // base rental price is 1 ONE
+    }
+
+    function getRentalInfo(
+        string memory _name,
+        uint256 _year,
+        uint256 _month
+    ) public view returns (address prevRenter, address nextRenter, uint256 price) {
+        bytes32 tokenId = keccak256(bytes(_name));
+        RentalInfo memory rental = rentals[tokenId][_year][_month];
+        prevRenter = rental.prevRenter;
+        nextRenter = rental.nextRenter;
+        price = rental.price;
     }
 
     /// @notice Withdraw funds
