@@ -88,24 +88,12 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         uint256 _month,
         uint256 _durationInMonth,
         bytes32 _secret
-    ) external payable whenDomainNotExistOrExpired(_name) {
-        // // register the domain
-        // bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
-        // dc.commit(commitment);
-        // dc.register(_name, address(this), _secret);
-
+    ) external payable whenNotPaused {
         uint256 domainExpireAt = dc.nameExpires(_name);
         bool isDomainNotExist = domainExpireAt == 0;
         bool isDomainInUse = domainExpireAt != 0 && block.timestamp <= domainExpireAt;
         bool isDomainInGracePeriod = domainExpireAt < block.timestamp &&
             block.timestamp <= domainExpireAt + GRACE_PERIOD;
-        // require(domainExpireAt == 0 || block.timestamp <= domainExpireAt, "RadicalMarkets: domain in use"); // whenDomainNotExistOrExpired
-        // require(
-        //     (currentYear < _year) || (currentYear == _year && currentMonth <= _month),
-        //     "RadicalMarkets: invalid start date"
-        // );
-        // require(block.timestamp <= startTimestampToRent, "RadicalMarkets: invalid start date");
-        // require(endTimestampToRent <= domainExpireAt, "RadicalMarkets: invalid rental duration");
 
         uint256 currentYear = dateTimeController.getYear(block.timestamp);
         uint256 currentMonth = dateTimeController.getMonth(block.timestamp);
