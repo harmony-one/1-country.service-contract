@@ -108,10 +108,23 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
 
         if (isDomainNotExist) {
             // if the domain doesn't exist, rent it from the current month
-            require(_year == currentYear && _month == currentMonth, "RadicalMarkets: invalid start date");
+            require(_year == currentYear && _month == currentMonth, "RadicalMarkets: !isDomainNotExist");
             _rentDomainNotExist(_name, _year, _month, _durationInMonth, _secret);
-        } else if (isDomainInUse) {} else if (isDomainInGracePeriod) {} else {
-            // domain expired fully
+        } else if (isDomainInUse) {
+            // if the domain is in use, rent it from the next month
+            require(
+                (currentYear == _year && currentMonth < _month) || (currentYear < _year),
+                "RadicalMarkets: !isDomainInUse"
+            );
+            _rentDomainInUse(_name, _year, _month, _durationInMonth, _secret);
+        } else if (isDomainInGracePeriod) {
+            // if the domain is in grace period, rent it from the current month
+            require(_year == currentYear && _month == currentMonth, "RadicalMarkets: !isDomainInGracePeriod");
+            _rentDomainInGracePeriod(_name, _year, _month, _durationInMonth, _secret);
+        } else {
+            // if domain is expired fully, rent it from the current month
+            require(_year == currentYear && _month == currentMonth, "RadicalMarkets: !isDomainExpiredFully");
+            _rentDomainExpiredFully(_name, _year, _month, _durationInMonth, _secret);
         }
     }
 
@@ -156,6 +169,10 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
     }
 
     function _rentDomainInUse(string memory _name, uint256 _year, uint256 _month, uint256 _durationIm) internal {}
+
+    function _rentDomainInGracePeriod(string memory _name, uint256 _year, uint256 _month, uint256 _durationIm) internal {}
+
+    function _rentDomainExpiredFully(string memory _name, uint256 _year, uint256 _month, uint256 _durationIm) internal {}
 
     function getDomainRentalPrice(
         string memory _name,
