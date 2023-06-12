@@ -140,6 +140,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         _mint(msg.sender, uint256(tokenId));
 
         uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1);
+        uint256 rentalPayment = msg.value;
 
         // store the rental info
         for (uint256 i = 1; i <= _durationInMonth; ) {
@@ -151,11 +152,18 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
 
             // handle the payment (half to the revenue account, half to the previous renter)
             // since the previous renter doesn't exist, the revenue account gets the full amount
-            require(msg.value == domainRentalPrice, "RadicalMarkets: invalid rental price");
-            revenueAccount.call{value: domainRentalPrice}("");
+            address prevRenter = rentals[tokenId][yearToSet][monthToSet].prevRenter;
+            require(rentalPayment >= domainRentalPrice, "RadicalMarkets: not enough payment");
+            rentalPayment -= domainRentalPrice;
+            if (prevRenter != address(0)) {
+                prevRenter.call{value: domainRentalPrice}("");
+            } else {
+                prevRenter.call{value: domainRentalPrice / 2}("");
+                revenueAccount.call{value: domainRentalPrice / 2}("");
+            }
 
             RentalInfo memory rental = RentalInfo({
-                prevRenter: address(0),
+                prevRenter: prevRenter,
                 nextRenter: msg.sender,
                 price: domainRentalPrice * 2
             });
@@ -178,7 +186,42 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         uint256 _month,
         uint256 _durationInMonth,
         bytes32 _secret
-    ) internal {}
+    ) internal {
+        uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1);
+        uint256 rentalPayment = msg.value;
+
+        // store the rental info
+        for (uint256 i = 1; i <= _durationInMonth; ) {
+            uint256 timestampToRent = dateTimeController.addMonths(startTimestampToRent, i);
+
+            uint256 yearToSet = dateTimeController.getYear(timestampToRent);
+            uint256 monthToSet = dateTimeController.getMonth(timestampToRent);
+            uint256 domainRentalPrice = getDomainRentalPrice(_name, _year, _month);
+
+            // handle the payment (half to the revenue account, half to the previous renter)
+            // since the previous renter doesn't exist, the revenue account gets the full amount
+            address prevRenter = rentals[tokenId][yearToSet][monthToSet].prevRenter;
+            require(rentalPayment >= domainRentalPrice, "RadicalMarkets: not enough payment");
+            rentalPayment -= domainRentalPrice;
+            if (prevRenter != address(0)) {
+                prevRenter.call{value: domainRentalPrice}("");
+            } else {
+                prevRenter.call{value: domainRentalPrice / 2}("");
+                revenueAccount.call{value: domainRentalPrice / 2}("");
+            }
+
+            RentalInfo memory rental = RentalInfo({
+                prevRenter: prevRenter,
+                nextRenter: msg.sender,
+                price: domainRentalPrice * 2
+            });
+            rentals[tokenId][yearToSet][monthToSet] = rental;
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
 
     function _rentDomainInGracePeriod(
         string memory _name,
