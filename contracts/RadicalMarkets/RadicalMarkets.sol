@@ -98,7 +98,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         uint256 currentYear = dateTimeController.getYear(block.timestamp);
         uint256 currentMonth = dateTimeController.getMonth(block.timestamp);
         uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1);
-        uint256 endTimestampToRent = dateTimeController.addMonths(startTimestampToRent, _durationInMonth);
+        // uint256 endTimestampToRent = dateTimeController.addMonths(startTimestampToRent, _durationInMonth);
 
         // the rental start date can't be in the past
         require(
@@ -139,10 +139,14 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         bytes32 tokenId = keccak256(bytes(_name));
         _mint(msg.sender, uint256(tokenId));
 
+        uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1);
+
         // store the rental info
-        for (uint256 i; i < _durationInMonth; ) {
-            uint256 yearToSet = _year + (_month + i) / 12;
-            uint256 monthToSet = (_month + i) % 12;
+        for (uint256 i = 1; i <= _durationInMonth; ) {
+            uint256 timestampToRent = dateTimeController.addMonths(startTimestampToRent, i);
+
+            uint256 yearToSet = dateTimeController.getYear(timestampToRent);
+            uint256 monthToSet = dateTimeController.getMonth(timestampToRent);
             uint256 domainRentalPrice = getDomainRentalPrice(_name, _year, _month);
 
             // handle the payment (half to the revenue account, half to the previous renter)
@@ -168,20 +172,28 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         dc.register(_name, address(this), _secret);
     }
 
-    function _rentDomainInUse(string memory _name, uint256 _year, uint256 _month, uint256 _durationIm) internal {}
+    function _rentDomainInUse(
+        string memory _name,
+        uint256 _year,
+        uint256 _month,
+        uint256 _durationInMonth,
+        bytes32 _secret
+    ) internal {}
 
     function _rentDomainInGracePeriod(
         string memory _name,
         uint256 _year,
         uint256 _month,
-        uint256 _durationIm
+        uint256 _durationInMonth,
+        bytes32 _secret
     ) internal {}
 
     function _rentDomainExpiredFully(
         string memory _name,
         uint256 _year,
         uint256 _month,
-        uint256 _durationIm
+        uint256 _durationInMonth,
+        bytes32 _secret
     ) internal {}
 
     function getDomainRentalPrice(
