@@ -175,7 +175,13 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         bytes32 _secret
     ) internal {}
 
-    function _handleRental(string memory _name, uint256 _year, uint256 _month, uint256 _durationInMonth, uint256 _paymentAmount) internal {
+    function _handleRental(
+        string memory _name,
+        uint256 _year,
+        uint256 _month,
+        uint256 _durationInMonth,
+        uint256 _paymentAmount
+    ) internal {
         bytes32 tokenId = keccak256(bytes(_name));
 
         uint256 startTimestampToRent = dateTimeController.timestampFromDate(_year, _month, 1);
