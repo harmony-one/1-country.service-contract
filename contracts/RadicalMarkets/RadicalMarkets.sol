@@ -214,7 +214,6 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
                 _receiverBuffer.set(prevRenter, amount + domainRentalPrice / 2);
                 (, amount) = _receiverBuffer.tryGet(revenueAccount);
                 _receiverBuffer.set(revenueAccount, amount + domainRentalPrice / 2);
-
             } else {
                 (, amount) = _receiverBuffer.tryGet(revenueAccount);
                 _receiverBuffer.set(revenueAccount, amount + domainRentalPrice);
