@@ -4,11 +4,14 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableMapUpgradeable.sol";
 
 import "../interfaces/IDC.sol";
 import "./BokkyPooBahsDateTimeContract.sol";
 
 contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable {
+    using EnumerableMapUpgradeable for EnumerableMapUpgradeable.AddressToUintMap;
+
     struct RentalInfo {
         address prevRenter;
         address nextRenter;
@@ -29,6 +32,9 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
 
     /// @dev Revenue account
     address public revenueAccount;
+
+    /// @dev payment buffer (Receiver -> Amount)
+    EnumerableMapUpgradeable.AddressToUintMap internal _receiverBuffer;
 
     // modifier onlyDCOwner(string memory _name) {
     //     address dcOwner = IDC(dc).ownerOf(_name);
@@ -195,24 +201,42 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
             uint256 monthToSet = dateTimeController.getMonth(timestampToRent);
             uint256 domainRentalPrice = getDomainRentalPrice(_name, _year, _month);
 
-            // handle the payment (half to the revenue account, half to the previous renter)
-            // since the previous renter doesn't exist, the revenue account gets the full amount
-            address prevRenter = rentals[tokenId][yearToSet][monthToSet].prevRenter;
             require(rentalPayment >= domainRentalPrice, "RadicalMarkets: not enough payment");
             rentalPayment -= domainRentalPrice;
+
+            // store the payment amount to the `_receiverBuffer` to avoid the multiple payment txs
+            // half to the revenue account, half to the previous renter
+            // if the previous renter doesn't exist, the revenue account gets the full amount
+            address prevRenter = rentals[tokenId][yearToSet][monthToSet].prevRenter;
+            uint256 amount;
             if (prevRenter != address(0)) {
-                prevRenter.call{value: domainRentalPrice}("");
+                (, amount) = _receiverBuffer.tryGet(prevRenter);
+                _receiverBuffer.set(prevRenter, amount + domainRentalPrice / 2);
+                (, amount) = _receiverBuffer.tryGet(revenueAccount);
+                _receiverBuffer.set(revenueAccount, amount + domainRentalPrice / 2);
+
             } else {
-                prevRenter.call{value: domainRentalPrice / 2}("");
-                revenueAccount.call{value: domainRentalPrice / 2}("");
+                (, amount) = _receiverBuffer.tryGet(revenueAccount);
+                _receiverBuffer.set(revenueAccount, amount + domainRentalPrice);
             }
 
             RentalInfo memory rental = RentalInfo({
                 prevRenter: prevRenter,
                 nextRenter: msg.sender,
-                price: domainRentalPrice * 2
+                price: domainRentalPrice
             });
             rentals[tokenId][yearToSet][monthToSet] = rental;
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        // transfer the payment
+        for (uint256 i; i < _receiverBuffer.length(); ) {
+            (address receiver, uint256 amount) = _receiverBuffer.at(i);
+            receiver.call{value: amount}("");
+            _receiverBuffer.remove(receiver);
 
             unchecked {
                 ++i;
@@ -226,6 +250,8 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         uint256 _month
     ) public view returns (uint256 price) {
         (, , price) = getRentalInfo(_name, _year, _month);
+        price *= 2; // double the price every month
+
         if (price == 0) price = 1 ether; // base rental price is 1 ONE
     }
 
