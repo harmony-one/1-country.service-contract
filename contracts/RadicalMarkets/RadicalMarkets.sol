@@ -3,13 +3,14 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableMapUpgradeable.sol";
 
 import "../interfaces/IDC.sol";
 import "./BokkyPooBahsDateTimeContract.sol";
 
-contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgradeable {
+contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using EnumerableMapUpgradeable for EnumerableMapUpgradeable.AddressToUintMap;
 
     struct RentalInfo {
@@ -94,7 +95,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, PausableUpgrad
         uint256 _month,
         uint256 _durationInMonth,
         bytes32 _secret
-    ) external payable whenNotPaused {
+    ) external payable nonReentrant whenNotPaused {
         uint256 domainExpireAt = dc.nameExpires(_name);
         bool isDomainNotExist = domainExpireAt == 0;
         bool isDomainInUse = domainExpireAt != 0 && block.timestamp <= domainExpireAt;
