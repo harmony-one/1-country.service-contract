@@ -151,8 +151,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         dc.register(_name, address(this), _secret);
 
         // mint the `RadicalMarkets` NFT
-        bytes32 tokenId = keccak256(bytes(_name));
-        _mint(msg.sender, uint256(tokenId));
+        _mintRadicalMarketsNFT(_name, msg.sender);
     }
 
     function _rentDomainInUse(
@@ -180,11 +179,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         bytes32 commitment = dc.renew(_name);
 
         // mint the `RadicalMarkets` NFT
-        bytes32 tokenId = keccak256(bytes(_name));
-        if (_exist(tokenId)) {
-            _burn(uint256(tokenId));
-        }
-        _mint(msg.sender, uint256(tokenId));
+        _mintRadicalMarketsNFT(_name, msg.sender);
     }
 
     function _rentDomainExpiredFully(
@@ -299,5 +294,13 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
     /// @notice Unpause the contract
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    function _mintRadicalMarketsNFT(string memory _name, address _receiver) internal {
+        bytes32 tokenId = keccak256(bytes(_name));
+        if (_exist(tokenId)) {
+            _burn(uint256(tokenId));
+        }
+        _mint(_receiver, uint256(tokenId));
     }
 }
