@@ -37,6 +37,10 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
     /// @dev payment buffer (Receiver -> Amount)
     EnumerableMapUpgradeable.AddressToUintMap internal _receiverBuffer;
 
+    /// @dev Domain name list registered in this contract
+    string[] public domainList;
+    mapping(string => bool) public isDomainInList;
+
     // modifier onlyDCOwner(string memory _name) {
     //     address dcOwner = IDC(dc).ownerOf(_name);
     //     require(msg.sender == dcOwner, "RadicalMarkets: only DC owner");
@@ -176,7 +180,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         _handleRental(_name, _year, _month, _durationInMonth, msg.value);
 
         // renew the domain and lock it
-        bytes32 commitment = dc.renew(_name);
+        dc.renew(_name);
 
         // mint the `RadicalMarkets` NFT
         _mintRadicalMarketsNFT(_name, msg.sender);
@@ -275,6 +279,14 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         price = rental.price;
     }
 
+    function getDomainCount() external view returns (uint256) {
+        return domainList.length;
+    }
+
+    function getDomainList() external view returns (string[] memory) {
+        return domainList;
+    }
+
     /// @notice Withdraw funds
     /// @dev Only owner of the revenue account can withdraw funds
     function withdraw() external {
@@ -297,8 +309,15 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
     }
 
     function _mintRadicalMarketsNFT(string memory _name, address _receiver) internal {
-        bytes32 tokenId = keccak256(bytes(_name));
-        if (_exist(tokenId)) {
+        // register the domain if not exist
+        if (!isDomainInList[_name]) {
+            domainList.push(_name);
+        }
+
+        // mint the `RadicalMarkets` NFT
+        uint256 tokenId = uint256(keccak256(bytes(_name)));
+        if (_exists(tokenId)) {
+            // burn the existing NFT as it's expired
             _burn(uint256(tokenId));
         }
         _mint(_receiver, uint256(tokenId));
