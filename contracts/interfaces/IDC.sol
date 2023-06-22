@@ -8,6 +8,8 @@ interface IDC {
 
     function register(string calldata name, address owner, bytes32 secret) external payable;
 
+    function renew(string calldata name) external payable;
+
     function available(string memory) external view returns (bool);
 
     function duration() external view returns (uint256);
