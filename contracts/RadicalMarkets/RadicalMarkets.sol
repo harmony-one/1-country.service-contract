@@ -20,7 +20,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
     }
 
     /// @dev Grace period for renewing a domain
-    uint256 public constant GRACE_PERIOD = 90 days;
+    uint256 public constant GRACE_PERIOD = 7 days;
 
     /// @dev DC contract address
     IDC public dc;
