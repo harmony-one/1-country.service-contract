@@ -15,7 +15,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
 
     struct RentalInfo {
         address prevRenter;
-        address nextRenter;
+        address currentRenter;
         uint256 price;
     }
 
@@ -245,7 +245,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
 
             RentalInfo memory rental = RentalInfo({
                 prevRenter: prevRenter,
-                nextRenter: msg.sender,
+                currentRenter: msg.sender,
                 price: domainRentalPrice
             });
             rentals[tokenId][yearToSet][monthToSet] = rental;
@@ -282,11 +282,11 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         string memory _name,
         uint256 _year,
         uint256 _month
-    ) public view returns (address prevRenter, address nextRenter, uint256 price) {
+    ) public view returns (address prevRenter, address currentRenter, uint256 price) {
         bytes32 tokenId = keccak256(bytes(_name));
         RentalInfo memory rental = rentals[tokenId][_year][_month];
         prevRenter = rental.prevRenter;
-        nextRenter = rental.nextRenter;
+        currentRenter = rental.currentRenter;
         price = rental.price;
     }
 
