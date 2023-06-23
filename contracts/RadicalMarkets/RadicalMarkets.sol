@@ -192,7 +192,18 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         uint256 _month,
         uint256 _durationInMonth,
         bytes32 _secret
-    ) internal {}
+    ) internal {
+        // handle the rental
+        _handleRental(_name, _year, _month, _durationInMonth, msg.value);
+
+        // register the domain and lock it
+        bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
+        dc.commit(commitment);
+        dc.register(_name, address(this), _secret);
+
+        // mint the `RadicalMarkets` NFT
+        _mintRadicalMarketsNFT(_name, msg.sender);
+    }
 
     function _handleRental(
         string memory _name,
