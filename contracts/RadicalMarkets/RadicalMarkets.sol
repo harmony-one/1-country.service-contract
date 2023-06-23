@@ -150,10 +150,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         uint256 currentMonth = dateTimeController.getMonth(block.timestamp);
     }
 
-    function _claimDomainNotExist(
-        string memory _name,
-        bytes32 _secret
-    ) internal {
+    function _claimDomainNotExist(string memory _name, bytes32 _secret) internal {
         // register the domain and lock it
         bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
         dc.commit(commitment);
@@ -163,17 +160,12 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         _mintRadicalMarketsNFT(_name, msg.sender);
     }
 
-    function _claimDomainInUse(
-        string memory _name,
-        bytes32 _secret
-    ) internal {
+    function _claimDomainInUse(string memory _name, bytes32 _secret) internal {
         // mint the `RadicalMarkets` NFT
         _mintRadicalMarketsNFT(_name, msg.sender);
     }
 
-    function _claimDomainInGracePeriod(
-        string memory _name
-    ) internal {
+    function _claimDomainInGracePeriod(string memory _name) internal {
         // renew the domain and lock it
         dc.renew(_name);
 
@@ -181,10 +173,7 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         _mintRadicalMarketsNFT(_name, msg.sender);
     }
 
-    function _claimDomainExpiredFully(
-        string memory _name,
-        bytes32 _secret
-    ) internal {
+    function _claimDomainExpiredFully(string memory _name, bytes32 _secret) internal {
         // register the domain and lock it
         bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
         dc.commit(commitment);
