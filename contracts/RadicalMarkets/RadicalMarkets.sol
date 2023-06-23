@@ -139,6 +139,61 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
         }
     }
 
+    function claimDomain() external nonReentrant whenNotPaused {
+        uint256 domainExpireAt = dc.nameExpires(_name);
+        bool isDomainNotExist = domainExpireAt == 0;
+        bool isDomainInUse = domainExpireAt != 0 && block.timestamp <= domainExpireAt;
+        bool isDomainInGracePeriod = domainExpireAt < block.timestamp &&
+            block.timestamp <= domainExpireAt + GRACE_PERIOD;
+
+        uint256 currentYear = dateTimeController.getYear(block.timestamp);
+        uint256 currentMonth = dateTimeController.getMonth(block.timestamp);
+    }
+
+    function _claimDomainNotExist(
+        string memory _name,
+        bytes32 _secret
+    ) internal {
+        // register the domain and lock it
+        bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
+        dc.commit(commitment);
+        dc.register(_name, address(this), _secret);
+
+        // mint the `RadicalMarkets` NFT
+        _mintRadicalMarketsNFT(_name, msg.sender);
+    }
+
+    function _claimDomainInUse(
+        string memory _name,
+        bytes32 _secret
+    ) internal {
+        // mint the `RadicalMarkets` NFT
+        _mintRadicalMarketsNFT(_name, msg.sender);
+    }
+
+    function _claimDomainInGracePeriod(
+        string memory _name
+    ) internal {
+        // renew the domain and lock it
+        dc.renew(_name);
+
+        // mint the `RadicalMarkets` NFT
+        _mintRadicalMarketsNFT(_name, msg.sender);
+    }
+
+    function _claimDomainExpiredFully(
+        string memory _name,
+        bytes32 _secret
+    ) internal {
+        // register the domain and lock it
+        bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
+        dc.commit(commitment);
+        dc.register(_name, address(this), _secret);
+
+        // mint the `RadicalMarkets` NFT
+        _mintRadicalMarketsNFT(_name, msg.sender);
+    }
+
     function _rentDomainNotExist(
         string memory _name,
         uint256 _year,
@@ -148,14 +203,6 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
     ) internal {
         // handle the rental
         _handleRental(_name, _year, _month, _durationInMonth, msg.value);
-
-        // register the domain and lock it
-        bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
-        dc.commit(commitment);
-        dc.register(_name, address(this), _secret);
-
-        // mint the `RadicalMarkets` NFT
-        _mintRadicalMarketsNFT(_name, msg.sender);
     }
 
     function _rentDomainInUse(
@@ -178,12 +225,6 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
     ) internal {
         // handle the rental
         _handleRental(_name, _year, _month, _durationInMonth, msg.value);
-
-        // renew the domain and lock it
-        dc.renew(_name);
-
-        // mint the `RadicalMarkets` NFT
-        _mintRadicalMarketsNFT(_name, msg.sender);
     }
 
     function _rentDomainExpiredFully(
@@ -195,14 +236,6 @@ contract RadicalMarkets is ERC721Upgradeable, OwnableUpgradeable, ReentrancyGuar
     ) internal {
         // handle the rental
         _handleRental(_name, _year, _month, _durationInMonth, msg.value);
-
-        // register the domain and lock it
-        bytes32 commitment = dc.makeCommitment(_name, address(this), _secret);
-        dc.commit(commitment);
-        dc.register(_name, address(this), _secret);
-
-        // mint the `RadicalMarkets` NFT
-        _mintRadicalMarketsNFT(_name, msg.sender);
     }
 
     function _handleRental(
